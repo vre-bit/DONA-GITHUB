@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credit Note Desk</title>
+<style>
+/* Layout: navy header band with sync controls, left vendor list, main panel (summary tiles, follow-up list, vendor cards). Alcove palette: navy, gold, red apex. */
+:root {
+  --bg: #f4f7fb; --surface: #ffffff; --surface2: #f8fafd; --line: #e1e8f1;
+  --ink: #1c3654; --muted: #5f6f85; --navy: #204768; --navy-deep: #16324e; --on-navy: #ffffff;
+  --gold: #efcc25; --gold-text: #8a6d0a; --red: #d82a30; --red-bg: #fbe9ea;
+  --good: #1d7a54; --good-bg: #e3f3ea; --warn-bg: #fdf6da; --warn-line: #ecd98f; --warn-ink: #6b571f;
+  --link: #204768;
+  --font: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1a29; --surface: #142435; --surface2: #172b40; --line: #26425d; --ink: #e4ecf6; --muted: #9fb0c6;
+    --navy: #2d5f8c; --navy-deep: #0f2437; --gold-text: #efcc25; --red: #ff7176; --red-bg: #3d1c20;
+    --good: #62d3a3; --good-bg: #123428; --warn-bg: #3a3213; --warn-line: #6b5a1d; --warn-ink: #f1dc8a; --link: #9cc4ec;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.5; }
+button, input, select { font: inherit; color: inherit; }
+a { color: var(--link); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.band { background: linear-gradient(135deg, var(--navy-deep), var(--navy)); color: var(--on-navy); border-bottom: 4px solid var(--gold); }
+.band-in { max-width: 1280px; margin: 0 auto; padding: 18px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.band h1 { margin: 0; font-size: 24px; letter-spacing: -.01em; }
+.band h1 span { color: var(--gold); }
+.brand { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; opacity: .8; }
+.grow { flex: 1; min-width: 0; }
+.sync { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.status { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; background: rgba(255,255,255,.12); padding: 6px 12px; border-radius: 999px; max-width: 100%; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #9aa7ba; flex: none; }
+.dot.on { background: #4fd69c; } .dot.busy { background: var(--gold); animation: pulse 1.1s ease-in-out infinite; } .dot.err { background: #ff7176; }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .dot.busy { animation: none; } }
+.btn { border: 1px solid var(--navy); background: var(--navy); color: var(--on-navy); padding: 7px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
+.btn.gold { background: var(--gold); border-color: var(--gold); color: #1c2b3a; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); font-weight: 500; }
+.band .btn.ghost { color: var(--on-navy); border-color: rgba(255,255,255,.4); }
+.btn:disabled { opacity: .5; cursor: default; }
+.bar { height: 4px; background: rgba(255,255,255,.2); border-radius: 2px; overflow: hidden; width: 160px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .2s; }
+
+.setup { max-width: 1280px; margin: 14px auto 0; padding: 0 16px; }
+.setup .note { background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-ink); border-radius: 8px; padding: 12px 16px; }
+.alertbox { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--gold); border-radius: 8px; padding: 10px 16px; }
+.alertbox h3 { margin: 0 0 2px; font-size: 15px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.alertbox .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.alertbox .who { color: var(--muted); font-size: 12.5px; }
+.al { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; padding: 8px 0; border-top: 1px solid var(--line); align-items: baseline; }
+.al a { font-weight: 600; overflow-wrap: anywhere; color: var(--link, var(--navy)); }
+.al .snip { display: block; color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .al { grid-template-columns: minmax(0, 1fr); } }
+.erpbox { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--navy); border-radius: 8px; padding: 10px 16px; }
+.erpbox h3 { margin: 0 0 2px; font-size: 15px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.erpbox .who, .modal .who { color: var(--muted); font-size: 12.5px; }
+.erp-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0 4px; }
+.erp-tools input[type=search] { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 6px 10px; font-size: 13px; min-width: 0; flex: 1 1 220px; max-width: 360px; }
+.chip[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: var(--on-navy); }
+.ev { border-top: 1px solid var(--line); padding: 10px 0; }
+.ev-h { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: space-between; }
+.ev-h b { font-size: 14px; overflow-wrap: anywhere; }
+.ev-h .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.eb { display: grid; grid-template-columns: minmax(0, 190px) minmax(0, 1fr) minmax(0, 230px); gap: 2px 14px; padding: 6px 0 6px 10px; border-left: 2px solid var(--line); margin-top: 6px; font-size: 13px; }
+.eb .meta { display: block; color: var(--muted); font-size: 12px; }
+.eb .bn { color: var(--ink); overflow-wrap: anywhere; }
+.eb .em { font-size: 12.5px; color: var(--muted); }
+.eb .em.ok { color: var(--good); }
+.eb .em a { color: inherit; }
+.eb .fu-done { display: block; color: var(--good); font-size: 12px; }
+@media (max-width: 760px) { .eb { grid-template-columns: minmax(0, 1fr); } }
+.modal { position: fixed; inset: 0; background: rgba(8, 18, 30, .55); display: flex; align-items: flex-start; justify-content: center; padding: calc(env(safe-area-inset-top, 0px) + 24px) 16px 24px; z-index: 10; overflow: auto; }
+.modal-in { width: 100%; max-width: 680px; padding: 16px 18px; display: grid; gap: 8px; }
+.modal-in h3 { margin: 0; font-size: 16px; }
+.modal-in label { display: grid; gap: 3px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.modal-in input, .modal-in textarea { font: inherit; font-size: 13.5px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; width: 100%; }
+.modal-in textarea { resize: vertical; }
+.modal-in .acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--link, var(--navy)); text-decoration: underline; cursor: pointer; font: inherit; }
+.setup code { font-family: var(--mono); background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 3px; }
+
+.layout { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.side { position: sticky; top: 12px; max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden; }
+@media (max-width: 860px) { .side { position: static; max-height: 280px; } }
+.side h2 { margin: 0; padding: 12px 14px 6px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.vlist { overflow-y: auto; padding: 0 6px 8px; }
+.v { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; text-align: left; padding: 8px 10px; border-radius: 6px; cursor: pointer; min-width: 0; }
+.v:hover { background: var(--surface2); }
+.v[aria-pressed="true"] { background: var(--navy); color: var(--on-navy); }
+.v .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; font-variant-numeric: tabular-nums; flex: none; }
+.badge.open { background: var(--red-bg); color: var(--red); }
+.badge.ok { background: var(--good-bg); color: var(--good); }
+.v[aria-pressed="true"] .badge { background: rgba(255,255,255,.2); color: var(--on-navy); }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 14px; margin-bottom: 14px; }
+.filters input[type=search], .filters select { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 6px 10px; min-width: 0; font-size: 13px; }
+.filters input[type=search] { flex: 1 1 200px; }
+.chip { border: 1px solid var(--line); background: var(--surface2); border-radius: 999px; padding: 4px 11px; font-size: 12.5px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--navy); color: var(--on-navy); border-color: var(--navy); font-weight: 600; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.tile { padding: 12px 14px; border-top: 3px solid var(--gold); min-width: 0; }
+.tile.alert { border-top-color: var(--red); }
+.tile .k { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.tile .val { font-size: 28px; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; line-height: 1.2; overflow-wrap: anywhere; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tile .val { color: var(--ink); } }
+.tile.alert .val { color: var(--red); }
+.tile .s { font-size: 12px; color: var(--muted); }
+
+.section-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 18px 0 8px; }
+.section-h h2 { margin: 0; font-size: 17px; padding-bottom: 3px; border-bottom: 3px solid var(--gold); }
+.spacer { flex: 1; }
+.note-box { background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-ink); border-radius: 8px; padding: 6px 16px; }
+.fu { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr) auto; gap: 4px 14px; padding: 9px 0; border-top: 1px solid var(--warn-line); align-items: baseline; }
+.fu:first-child { border-top: 0; }
+.fu b { overflow-wrap: anywhere; }
+.fu .days { font-weight: 700; color: var(--red); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fu button { border: 0; background: none; padding: 0; color: inherit; font-weight: 700; text-align: left; cursor: pointer; text-decoration: underline; }
+@media (max-width: 640px) { .fu { grid-template-columns: minmax(0, 1fr) auto; } .fu > :nth-child(2) { grid-column: 1 / -1; order: 3; } }
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: var(--navy); color: var(--on-navy); text-align: left; padding: 8px 12px; font-weight: 600; white-space: nowrap; }
+td { padding: 8px 12px; border-top: 1px solid var(--line); }
+tr:nth-child(even) td { background: var(--surface2); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td button { border: 0; background: none; padding: 0; color: var(--link); cursor: pointer; font-weight: 600; text-align: left; }
+
+.thread { padding: 14px 16px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 4px 16px; }
+.thread:first-child { border-top: 0; }
+.thread .d { font-weight: 600; font-variant-numeric: tabular-nums; }
+.thread .d small { display: block; font-weight: 400; color: var(--muted); }
+.thread .t { font-weight: 600; overflow-wrap: anywhere; }
+.thread .sum { color: var(--muted); margin: 2px 0 6px; }
+@media (max-width: 640px) { .thread { grid-template-columns: minmax(0, 1fr); } }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; margin-right: 6px; letter-spacing: .02em; }
+.pill.good { background: var(--good-bg); color: var(--good); }
+.pill.warn { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-line); }
+.pill.red { background: var(--red-bg); color: var(--red); }
+.pill.neutral { background: var(--surface2); color: var(--muted); border: 1px solid var(--line); }
+.cn { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 5px 0; border-top: 1px dashed var(--line); font-size: 13px; }
+.cn:first-of-type { border-top: 0; }
+.tag { font-family: var(--mono); font-size: 11.5px; background: var(--surface2); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; overflow-wrap: anywhere; }
+.tag.pdf { font-family: var(--font); border-color: var(--gold); }
+.tag.pdf::before { content: "PDF "; font-weight: 700; color: var(--gold-text); }
+.amt { font-weight: 700; font-variant-numeric: tabular-nums; }
+.pend { color: var(--red); font-size: 13px; padding: 3px 0; }
+.act { font-size: 13px; margin-top: 6px; padding: 6px 10px; background: var(--warn-bg); border-radius: 6px; color: var(--warn-ink); }
+.lowc { font-size: 12px; color: var(--muted); }
+.empty { padding: 30px 16px; text-align: center; color: var(--muted); }
+.foot { max-width: 1280px; margin: 0 auto; padding: 0 16px 36px; font-size: 12px; color: var(--muted); }
+.toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--navy-deep); color: var(--on-navy); padding: 9px 16px; border-radius: 6px; font-size: 13px; z-index: 5; max-width: calc(100% - 32px); }
+.toast[hidden], [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header class="band"><div class="band-in">
+  <div>
+    <div class="brand">Alcove Realty · Vendor accounts</div>
+    <h1>Credit Note <span>Desk</span></h1>
+  </div>
+  <div class="grow"></div>
+  <div class="sync">
+    <select id="period" class="btn ghost" aria-label="Period">
+      <option value="fy">This financial year</option>
+      <option value="6">Last 6 months</option>
+      <option value="3">Last 3 months</option>
+      <option value="1">Last month</option>
+    </select>
+    <button class="btn gold" id="sync" type="button">Connect Gmail and sync</button>
+    <button class="btn ghost" id="signout" type="button" hidden>Sign out</button>
+    <span class="bar" id="barwrap" hidden><i id="bar"></i></span>
+    <span class="status" id="status" role="status"><span class="dot" id="dot"></span><span id="stext"></span></span>
+  </div>
+</div></header>
+<div class="setup" id="setup" hidden></div>
+<div class="setup" id="alerts" hidden></div>
+<div class="setup" id="erp" hidden></div>
+<div class="modal" id="mailbox" role="dialog" aria-modal="true" aria-labelledby="mb-title" hidden>
+  <div class="modal-in card">
+    <h3 id="mb-title">Vendor follow-up mail</h3>
+    <p class="who" style="margin:0">Nothing is sent until you press <b>Approve &amp; send</b>. Edit anything first.</p>
+    <label>To <input id="mb-to" type="text" placeholder="vendor@example.com" autocomplete="off"></label>
+    <div class="who" id="mb-tohint"></div>
+    <label>Cc <input id="mb-cc" type="text" autocomplete="off"></label>
+    <label>Subject <input id="mb-subject" type="text" autocomplete="off"></label>
+    <label>Message <textarea id="mb-body" rows="14"></textarea></label>
+    <div class="who" id="mb-msg"></div>
+    <div class="acts">
+      <button class="btn ghost" id="mb-cancel" type="button">Cancel</button>
+      <button class="btn ghost" id="mb-copy" type="button">Copy text</button>
+      <button class="btn gold" id="mb-send" type="button">Approve &amp; send</button>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="card side" aria-label="Vendors">
+    <h2>Vendors</h2>
+    <div class="vlist" id="vlist"></div>
+  </aside>
+  <main>
+    <section class="card filters" id="filters" aria-label="Filters">
+      <input type="search" id="q" placeholder="Search vendor, invoice, subject" aria-label="Search">
+      <button class="chip" data-cat="received" type="button">Received</button>
+      <button class="chip" data-cat="requested" type="button">Requested</button>
+      <button class="chip" data-cat="partial" type="button">Partly received</button>
+      <button class="chip" data-cat="adjusted" type="button">Adjusted</button>
+      <button class="chip" id="openonly" type="button" aria-pressed="false">Open only</button>
+      <select id="entity" aria-label="Alcove entity"><option value="">All entities</option></select>
+    </section>
+    <div id="tiles" class="tiles"></div>
+    <div id="view"></div>
+  </main>
+</div>
+<p class="foot" id="foot"></p>
+<div class="toast" id="toast" hidden></div>
+
+<script id="snapshot" type="application/json">{"meta":{"generatedAt":"2026-10-06","source":"Gmail, classified by Claude","from":"2026-04-01","to":"2026-10-06","threadsScanned":245,"threadsClassified":88},"records":[{"threadId":"19715f2de8d4b427","subject":"FW: FW: PO NO-487 AGAINST INVOICE COPY AND CREDIT NOTE","vendor":"Power Electronics","vendorKey":"powerelectronics","entity":"Alcove Developers LLP","category":"received","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-07-10","invoices":[],"amount":null,"files":["ALCOVE SR-033.pdf"],"reason":"credit note copy forwarded, details not stated"}],"pending":[],"summary":"Power Electronics credit note and invoice copies forwarded again on 10 Jul 2026 with a note that PE-0678/25-26 is not booked; credit note details are not stated in the text.","next_action":"Open the attached PDFs to confirm the CN number and amount, and check why PE-0678/25-26 was not booked.","last_activity":"2026-07-10","in_period":true,"confidence":"low"},{"threadId":"19b164c4a2f435de","subject":"Fwd: Short Material Received","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"JCPL-UN-6025497","reason":"short material received (2 pcs), Triveni site; CN under process at Jaquar logistics","asked_date":"2026-06-16"},{"invoice":"JCWH-UN-3014581","reason":"credit note mailed by Jaquar to commercial team and logistics, not yet shared","asked_date":"2026-06-16"}],"summary":"Credit note for short-supplied material against Jaquar invoice JCPL-UN-6025497 has been chased for months; on 17 Jun 2026 Jaquar said it is being processed and not yet shared.","next_action":"Politely follow up with Subhankar Das at Jaquar for the credit notes against JCPL-UN-6025497 and JCWH-UN-3014581.","last_activity":"2026-06-18","in_period":true,"confidence":"high"},{"threadId":"19c52144589d980d","subject":"PO Notification to Supplier-3173","vendor":"Fasteners India","vendorKey":"fastenersindia","entity":"Alcove Developers LLP","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"FI/25-26/12831","reason":"10 kg GI 5/8x6 nut bolt not delivered or replaced","asked_date":"2026-04-16"}],"summary":"Credit note requested for 10 kg of undelivered or defective nut-bolts under invoice FI/25-26/12831; vendor replied on 15 Jul 2026 disputing liability and no credit note was issued.","next_action":"Check with the Triveni store on the lorry delivery, then politely ask Fasteners India again for the credit note.","last_activity":"2026-07-15","in_period":true,"confidence":"high"},{"threadId":"19cd7935108191fe","subject":"Regarding Bill changes request against INV No-JCWH-KOL-005520 & JCWH-UN-3014581","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"JCWH-UN-3014581","reason":"CN for rate difference Rs 548.55 plus 18% GST promised against PO 16885; Jaquar named JCWH-KOL005520 as the invoice","asked_date":"2026-04-07"}],"summary":"Jaquar agreed on 7 Apr 2026 to issue a credit note of Rs 548.55 for PO 16885; the invoice reference is unresolved and the CN had not arrived by 8 Apr.","next_action":"Politely confirm the correct invoice number with Jaquar and ask for the credit note copy.","last_activity":"2026-04-08","in_period":true,"confidence":"medium"},{"threadId":"19d4782e23813caa","subject":"Fwd: Credit Note for breakage of 4mm clear float glass and 4mm mirror glass","vendor":"J.P. Ganeriwala & Co","vendorKey":"jpganeriwala","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-04-01","invoices":[],"amount":null,"files":["1.pdf"],"reason":"breakage of 4mm clear float glass"},{"ref":null,"cn_date":null,"received_date":"2026-04-01","invoices":[],"amount":null,"files":["2.pdf"],"reason":"breakage of 4mm mirror glass"}],"pending":[],"summary":"J.P. Ganeriwala credit notes for breakage of 4mm clear float and mirror glass were forwarded by purchase and passed on to accounts on 1 Apr 2026.","next_action":"Confirm accounts has booked these credit notes against the glass invoices.","last_activity":"2026-04-01","in_period":true,"confidence":"medium"},{"threadId":"19d480d664bb72a6","subject":"Fwd: Credit Note for breakage of 4mm clear float glass","vendor":"J.P. Ganeriwala & Co","vendorKey":"jpganeriwala","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-04-01","invoices":[],"amount":null,"files":["101.pdf"],"reason":"breakage of 4mm clear float glass"}],"pending":[],"summary":"J.P. Ganeriwala credit note for breakage of 4mm clear float glass was forwarded by purchase and passed to accounts and stores on 1 Apr 2026.","next_action":"","last_activity":"2026-04-01","in_period":true,"confidence":"high"},{"threadId":"19d51cbacab0a7e5","subject":"Required bill details for adjustment pmt dt 02.04.2026","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"adjusted","status":"closed","credit_notes":[{"ref":"CN002892","cn_date":null,"received_date":null,"invoices":["JCWH-MEH006732"],"amount":4302.0,"files":[],"reason":"adjusted against payment deduction"}],"pending":[],"summary":"For Jaquar's Rs 3,10,364 NEFT of 2 Apr 2026, Alcove stated a Rs 4,302 deduction on JCWH-MEH006732 was adjusted with credit note CN002892.","next_action":"","last_activity":"2026-04-07","in_period":true,"confidence":"high"},{"threadId":"19d5718b6f1a0dcc","subject":"Invoice stuck for audit compliance","vendor":"Multiple vendors (Dhanuka Fittings, Joyous Block Panels)","vendorKey":"multiplevendorsdhanukafittingsjoyousblockpanels","entity":"Other/Unknown","category":"partial","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-04-06","invoices":["2392"],"amount":null,"files":["Credit Note_61.pdf"],"reason":"GST rate difference"}],"pending":[{"invoice":"JBP/4883/2025-26","reason":"full credit note for item 2, block jointing mortar (Joyous Block Panels)","asked_date":"2026-04-04"}],"summary":"Audit-compliance requests: Dhanuka Fittings sent a credit note for invoice 2392 on 6 Apr 2026, while Joyous Block Panels was reminded on 13 Apr for a credit note.","next_action":"Follow up politely with Joyous Block Panels for the credit note against JBP/4883/2025-26.","last_activity":"2026-04-13","in_period":true,"confidence":"medium"},{"threadId":"19d5732f955af3e5","subject":"Regarding Invoice No- JCWH-KOL005655","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-04-28","invoices":["JCWH-KOL005655"],"amount":null,"files":["CN.pdf"],"reason":"invoice split per project, reissued"}],"pending":[],"summary":"Jaquar reissued separate invoices for the two Triveni projects and sent a credit note for JCWH-KOL005655 on 28 Apr 2026, forwarded to the store.","next_action":"","last_activity":"2026-04-28","in_period":true,"confidence":"high"},{"threadId":"19d6147da055c6aa","subject":"Invoice stuck for audit compliance","vendor":"Multiple vendors (Trust Enterprise, Universal Fire Protect)","vendorKey":"multiplevendorstrustenterpriseuniversalfireprotect","entity":"Other/Unknown","category":"partial","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-04-08","invoices":["TE/5975/25-2026"],"amount":null,"files":["Credit Note_322.pdf"],"reason":"material return"}],"pending":[{"invoice":"UFP/25-26/1459","reason":"credit note of 100 plus GST (Universal Fire Protect LLP)","asked_date":"2026-04-06"}],"summary":"Trust Enterprise sent a credit note for material return on 8 Apr 2026; Universal Fire Protect LLP was reminded the same day for its credit note on UFP/25-26/1459.","next_action":"Send a further polite reminder to Universal Fire Protect for the credit note.","last_activity":"2026-04-08","in_period":true,"confidence":"medium"},{"threadId":"19d6bc1c30f4ef49","subject":"Fwd: Credit Note for Short Supply Of 4MM Mirror Against Invoice Number JPG/00036/26-27","vendor":"J.P. Ganeriwala & Co","vendorKey":"jpganeriwala","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-04-08","invoices":["JPG/00036/26-27"],"amount":null,"files":["Mirror CN.pdf"],"reason":"short supply of 4mm mirror"}],"pending":[],"summary":"J.P. Ganeriwala credit note for short supply of 4mm mirror against JPG/00036/26-27 was received from purchase and forwarded to accounts on 8 Apr 2026.","next_action":"","last_activity":"2026-04-08","in_period":true,"confidence":"high"},{"threadId":"19d70df515dc6282","subject":"Invoice stuck for audit compliance","vendor":"Trust Enterprise","vendorKey":"trustenterprise","entity":"Other/Unknown","category":"partial","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-05-05","invoices":["TE/5975/25-2026","TE/5974/25-2026","TE/5922/25-2026","TE/5923/25-2026"],"amount":null,"files":["Credit Note_322.pdf"],"reason":"credit note against four invoices"}],"pending":[{"invoice":"JCWH-UN-3014581","reason":"Jaquar rate mismatch credit note, Rs 647 incl. GST","asked_date":"2026-04-20"},{"invoice":"JCWH-UN-3014582","reason":"Jaquar balance amount credit note","asked_date":"2026-04-20"}],"summary":"Multi-vendor audit-compliance thread; Trust Enterprise sent a credit note on 5 May, while Jaquar credit notes (JCWH-UN-3014581/82) were requested on 20 April with no receipt.","next_action":"Process Trust Enterprise credit note; keep following up with Jaquar for the two pending credit notes.","last_activity":"2026-05-05","in_period":true,"confidence":"medium"},{"threadId":"19d771338f650ada","subject":"Invoice stuck for audit compliance","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"JCWH-MEH007542","reason":"Credit note Rs 12,738 for 2 EWC with cistern and 4 flat back wash basins","asked_date":"2026-04-10"},{"invoice":"IMC/1538/25-26","reason":"Indra Metal Corporation credit note Rs 200 plus GST","asked_date":"2026-04-10"}],"summary":"Audit-compliance thread; Jaquar credit note against JCWH-MEH007542 (Rs 12,738) chased through repeated reminders to 22 May with none received; Indra Metal credit note also requested.","next_action":"Continue polite follow-up with Jaquar and Indra Metal for the pending credit notes.","last_activity":"2026-05-22","in_period":true,"confidence":"medium"},{"threadId":"19d8662cfc1fee19","subject":"PO Approval Notification to Supplier-17096","vendor":"TH Habib","vendorKey":"thhabib","entity":"Alcove Developers LLP","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":null,"reason":"5 Nos cutting nozzle A-3/64 rejected; return and credit note; vendor promised 4 May","asked_date":"2026-05-02"}],"summary":"Rejected cutting nozzles on PO 17096; vendor promised a credit note on 4 May but on 15 May the credit note and material return were still pending.","next_action":"Follow up politely with TH Habib on the material return and credit note.","last_activity":"2026-05-15","in_period":true,"confidence":"high"},{"threadId":"19da973f097ce40a","subject":"Invoice stuck for audit compliance","vendor":"Aurum India","vendorKey":"aurumindia","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-04-22","invoices":["ARM/271/25-26"],"amount":null,"files":["Alcove Credit Note -01.pdf"],"reason":"required for audit compliance"}],"pending":[],"summary":"Credit note requested on 20 April and reminded on 22 April for invoice ARM/271/25-26; Aurum India sent the credit note PDF the same day.","next_action":"","last_activity":"2026-04-22","in_period":true,"confidence":"high"},{"threadId":"19db433c341c89ea","subject":"Invoice stuck for audit compliance","vendor":"J.P. Ganeriwala & Co","vendorKey":"jpganeriwala","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-04-22","invoices":["JPG/00036/26-27"],"amount":1062,"files":["credit note.pdf"],"reason":"short supply, 1.20 sqm glass"}],"pending":[],"summary":"Credit note requested for invoice JPG/00036/26-27 (Rs 1,062 incl. GST); vendor sent credit note plus MTCs on 22 April.","next_action":"","last_activity":"2026-04-22","in_period":true,"confidence":"medium"},{"threadId":"19db4a80a64efe90","subject":"Credit note against invoice number JPG/00133/26-27 DT: 21-04-2026","vendor":"J.P. Ganeriwala & Co","vendorKey":"jpganeriwala","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-04-22","invoices":["JPG/00133/26-27"],"amount":null,"files":["CREDIT NOTE.pdf"],"reason":"breakage of 5mm clear float glass"}],"pending":[],"summary":"J.P. Ganeriwala sent a credit note for breakage of one piece of 5mm clear float glass against JPG/00133/26-27; resent on 25 May.","next_action":"","last_activity":"2026-05-25","in_period":true,"confidence":"high"},{"threadId":"19dcd25577e8e67e","subject":"Request For Credit Notes","vendor":"Indra Metal Corporation","vendorKey":"indrametal","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":null,"reason":"Credit note for disproportionate Rs 200 delivery charge on Rs 280 anchor fastener item","asked_date":"2026-04-25"}],"summary":"Credit note requested for a Rs 200 delivery charge on a Rs 280 anchor fastener bill; vendor declined, saying the freight was billed by Anand Lorry.","next_action":"Coordinate with the purchase team on resolution; follow up with vendor on the freight credit note.","last_activity":"2026-04-27","in_period":true,"confidence":"medium"},{"threadId":"19dcd6b3e9e26e7b","subject":"RE: Request For Credit Notes // UNDRA METAL CORPORATION","vendor":"Indra Metal Corporation","vendorKey":"indrametal","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":null,"reason":"Credit note for Rs 200 freight on Rs 280 invoice","asked_date":"2026-04-27"}],"summary":"Purchase head asked Indra Metal to issue a credit note for the Rs 200 freight; vendor refused, stating the transporter charged it and it is not involved.","next_action":"Await purchase head's direction; follow up politely with vendor if the matter continues.","last_activity":"2026-04-27","in_period":true,"confidence":"medium"},{"threadId":"19dcdddcaaf37df0","subject":"Invoice stuck for audit compliance","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"JCPL-UN-6025497","reason":"Credit note for 2 pcs @ Rs 396","asked_date":"2026-04-27"},{"invoice":"JCWH-UN-3014581","reason":"Rate mismatch credit note Rs 647 incl. GST","asked_date":"2026-04-27"},{"invoice":"JCWH-UN-3014582","reason":"Balance amount credit note","asked_date":"2026-04-27"}],"summary":"Three Jaquar credit notes requested on 27 April; vendor said it would revert next day, and after nine reminders to 21 May none was received.","next_action":"Continue polite escalation with Jaquar seniors; request a confirmed issuance date.","last_activity":"2026-05-22","in_period":true,"confidence":"high"},{"threadId":"19dd2d4030103327","subject":"Invoice stuck for audit compliance","vendor":"J.P. Ganeriwala & Co","vendorKey":"jpganeriwala","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-04-28","invoices":["JPG/02469/25-26"],"amount":164.34,"files":["2469 CN.pdf"],"reason":"short supply, 0.364 sqm glass"},{"ref":null,"cn_date":null,"received_date":"2026-04-28","invoices":["JPG/02450/25-26"],"amount":260.07,"files":["2450 CN.pdf"],"reason":"short supply, 0.578 sqm glass"},{"ref":null,"cn_date":null,"received_date":"2026-05-02","invoices":["JPG/00046/26-27"],"amount":1970,"files":["credit note for toughened glass.pdf"],"reason":"short supply, 1.098 sqm glass"}],"pending":[],"summary":"J.P. Ganeriwala sent credit notes for JPG/02469, JPG/02450 and (after a reminder) JPG/00046; Jeevanjyoti declined a credit note, asking Alcove to adjust the excess cement.","next_action":"Adjust Jeevanjyoti JJ/0671/25-26 per vendor's note; process the credit notes received.","last_activity":"2026-05-02","in_period":true,"confidence":"medium"},{"threadId":"19dde6600e5b2c06","subject":"Credit Note for Alcove","vendor":"Aurum India","vendorKey":"aurumindia","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-04-30","invoices":["ARM/248/25-26"],"amount":null,"files":["Alcove Developers CN-002.pdf"],"reason":"credit note against PO 888 invoice"}],"pending":[],"summary":"Aurum India sent a credit note copy for invoice ARM/248/25-26 dated 2 Feb 2026 (PO 888) on 30 April.","next_action":"","last_activity":"2026-04-30","in_period":true,"confidence":"high"},{"threadId":"19de85907b85256e","subject":"FW: Authorized stamp in Bill and Credit Note","vendor":"Aurum India","vendorKey":"aurumindia","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-05-02","invoices":[],"amount":null,"files":["Credit Note.jpeg"],"reason":"credit note, stamped copy"}],"pending":[],"summary":"Aurum India sent a bill (271) and a credit note copy with authorised stamp; no CN number or amount stated in the email.","next_action":"File the stamped credit note against the Aurum ledger.","last_activity":"2026-05-02","in_period":true,"confidence":"medium"},{"threadId":"19df72b6249a42dd","subject":"FW: Authorized stamp in Bill and Credit Note","vendor":"Aurum India","vendorKey":"aurumindia","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-05-05","invoices":[],"amount":null,"files":["Credit Note.jpeg"],"reason":"credit note, stamped copy"}],"pending":[],"summary":"Aurum's stamped bill and credit note copy was resent and then forwarded internally by Riya; number and amount not stated.","next_action":"File the stamped credit note against the Aurum ledger.","last_activity":"2026-05-08","in_period":true,"confidence":"medium"},{"threadId":"19df7ebc9bae1e84","subject":"(no subject; Dona to Audit Team on Jeevanjyoti short supply)","vendor":"Jeevanjyoti Agencies Pvt Ltd","vendorKey":"jeevanjyotiagencies","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"JJ/0671/25-26","reason":"Short supply 0.24 MT cement; vendor reluctant to issue CN of Rs 1,152 incl. GST","asked_date":"2026-05-05"}],"summary":"Credit note of Rs 1,152 for short cement supply on JJ/0671/25-26 is pending; Audit says management approval is needed to process the bill.","next_action":"Kindly obtain management approval or the vendor credit note so the bill can be processed.","last_activity":"2026-05-06","in_period":true,"confidence":"high"},{"threadId":"19df90e405789297","subject":"Issues against invoices shared from Alcove Developers LLP","vendor":"Greenply Industries","vendorKey":"greenplyindustries","entity":"Alcove Developers LLP","category":"partial","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-05-13","invoices":["IN1907007880"],"amount":null,"files":["1100006329 _GRN Copy_alcove.pdf"],"reason":"19mm ply full credit"}],"pending":[{"invoice":"IN1907007582","reason":"CN of 246.35 + GST; vendor says too small to issue","asked_date":"2026-05-05"},{"invoice":"IN1907007882","reason":"CN of 8 + GST; vendor says too small to issue","asked_date":"2026-05-05"}],"summary":"Greenply sent a CN on 13 May (likely for IN1907007880); CNs for two tiny amounts on IN1907007582 and IN1907007882 are refused.","next_action":"Kindly confirm the received CN matches IN1907007880 and seek a decision on the two small-amount CNs.","last_activity":"2026-05-13","in_period":true,"confidence":"medium"},{"threadId":"19dfc60e7fffac57","subject":"INDRA METAL CORPORATION INVOICE","vendor":"Indra Metal Corporation","vendorKey":"indrametal","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-05-06","invoices":[],"amount":null,"files":["CR 2 ALCOVE DEVELOPERS.pdf"],"reason":"credit note rectified"}],"pending":[],"summary":"Indra Metal sent an invoice and then a rectified credit note (CR 2 Alcove Developers); number and amount not stated in the email.","next_action":"Verify rectified CN and book it against the invoice.","last_activity":"2026-05-06","in_period":true,"confidence":"medium"},{"threadId":"19dfc6c35702e71f","subject":"Invoice stuck for audit compliance","vendor":"J.P. Ganeriwala & Co","vendorKey":"jpganeriwala","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-05-06","invoices":["JPG/02450/25-26"],"amount":244,"files":["99 CN.pdf"],"reason":"short supply glass"},{"ref":null,"cn_date":null,"received_date":"2026-05-06","invoices":["JPG/02469/25-26"],"amount":129,"files":["101 CN.pdf"],"reason":"short supply glass"}],"pending":[],"summary":"J.P. Ganeriwala sent short-supply credit notes for two invoices (Rs 244 and Rs 129 per vendor calculation) along with MTCs for 00044 and 00045.","next_action":"Confirm CN amounts with Audit and close the invoices.","last_activity":"2026-05-06","in_period":true,"confidence":"medium"},{"threadId":"19e0111404524169","subject":"Fwd: Request for Holding Payment of Maya Battery","vendor":"Maya Battery & Electrical Works","vendorKey":"mayabattery","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-05-15","invoices":[],"amount":null,"files":["CN.pdf"],"reason":"buy-back rate difference"}],"pending":[],"summary":"Maya Battery billed Rs 750 per battery against Rs 600 buy-back rate; vendor issued a credit note and Purchase asked to release payment.","next_action":"Process payment for Maya Battery bill after matching the credit note.","last_activity":"2026-05-15","in_period":true,"confidence":"high"},{"threadId":"19e253793f8bd01f","subject":"Regarding materials weight shortage received from Shubham Steels (Inv No-SS/043/26-27)","vendor":"Shubham Steels","vendorKey":"shubhamsteels","entity":"Alcove Developers LLP","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"SS/043/26-27","reason":"160 kg shortage on MS Universal Column","asked_date":"2026-05-14"}],"summary":"Store reported a 160 kg shortage on SS/043/26-27; credit note requested on 14 May and reminded twice, none received.","next_action":"Kindly send a third polite reminder to Shubham Steels for the credit note.","last_activity":"2026-05-26","in_period":true,"confidence":"high"},{"threadId":"19e255e38296549e","subject":"Invoice stuck for audit compliance","vendor":"J.P. Ganeriwala & Co","vendorKey":"jpganeriwala","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-05-14","invoices":["JPG/00045/26-27"],"amount":947,"files":[],"reason":"short supply glass"},{"ref":null,"cn_date":null,"received_date":"2026-05-22","invoices":["JPG/00045/26-27"],"amount":1233,"files":["credit note.pdf"],"reason":"balance short supply glass"}],"pending":[],"summary":"Multi-vendor audit thread; J.P. Ganeriwala issued Rs 947 CN and a further Rs 1,233 CN for JPG/00045/26-27. Aurum also noted CN-002 adjusted twice.","next_action":"Book the Rs 1,233 CN; ask accounts to correct Aurum CN-002 double adjustment.","last_activity":"2026-05-22","in_period":true,"confidence":"medium"},{"threadId":"19e2b1b88a3f1e5f","subject":"BILL, PO & WEIGHMENT SLIP AS REQUIRED","vendor":"Jeevanjyoti Agencies Pvt Ltd","vendorKey":"jeevanjyotiagencies","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":"JJ CN 003","cn_date":null,"received_date":"2026-05-15","invoices":["JJ/0671/25-26"],"amount":null,"files":["JJ CN 003 150526 ALCOVE.pdf"],"reason":"short supply 240 kg cement"}],"pending":[],"summary":"Jeevanjyoti issued a credit note for 240 kg short cement against JJ/0671/25-26 after Dona sent invoice, PO and weighment slip.","next_action":"Process the held bill JJ/0671/25-26 with the credit note.","last_activity":"2026-05-15","in_period":true,"confidence":"high"},{"threadId":"19e2bf501c374634","subject":"FW: BILL, PO & WEIGHMENT SLIP AS REQUIRED // BILL ISSUE// JEEVAN JYOTI","vendor":"Jeevanjyoti Agencies Pvt Ltd","vendorKey":"jeevanjyotiagencies","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":"JJ CN 003","cn_date":null,"received_date":"2026-05-15","invoices":["JJ/0671/25-26"],"amount":null,"files":["JJ CN 003 150526 ALCOVE.pdf"],"reason":"short supply 240 kg cement"}],"pending":[],"summary":"Purchase head forwarded Jeevanjyoti's credit note for 240 kg short cement on JJ/0671/25-26 to Niraj Ji for the bill issue.","next_action":"","last_activity":"2026-05-15","in_period":true,"confidence":"high"},{"threadId":"19e3f8abbc222da5","subject":"Regarding Payment deduction of GENX VALVES AND AUTOMATION","vendor":"GenX Valves & Automation","vendorKey":"genxvalvesautomation","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":"10","cn_date":null,"received_date":"2026-05-20","invoices":[],"amount":null,"files":["CN 10 - ALCOVE DEVELOPERS LLP (1).pdf"],"reason":"2% retention against invoice"},{"ref":"11","cn_date":null,"received_date":"2026-05-20","invoices":[],"amount":null,"files":["CN 11 - ALCOVE DEVELOPERS LLP.pdf"],"reason":"2% retention against invoice"},{"ref":"04","cn_date":null,"received_date":"2026-05-20","invoices":[],"amount":null,"files":["CN 04 - ALCOVE DEVELOPERS LLP.pdf"],"reason":"2% retention against invoice"},{"ref":"05","cn_date":null,"received_date":"2026-05-20","invoices":[],"amount":null,"files":["CN 05 - ALCOVE DEVELOPERS LLP.pdf"],"reason":"2% retention against invoice"},{"ref":null,"cn_date":null,"received_date":"2026-05-20","invoices":["GENX/25-26/329"],"amount":null,"files":["CN  for 329.pdf"],"reason":"2% retention against invoice"},{"ref":null,"cn_date":null,"received_date":"2026-05-20","invoices":["GENX/25-26/354"],"amount":null,"files":["CN for 354.pdf"],"reason":"2% retention against invoice"},{"ref":null,"cn_date":null,"received_date":"2026-05-20","invoices":["GENX/26-27/021"],"amount":null,"files":["Credit Note for invoice no 021.pdf"],"reason":"2% retention against invoice"},{"ref":null,"cn_date":null,"received_date":"2026-05-20","invoices":["GENX/26-27/020"],"amount":null,"files":["Credit note for invoice no 020.pdf"],"reason":"2% retention against invoice"},{"ref":null,"cn_date":null,"received_date":"2026-05-20","invoices":["GENX/26-27/004"],"amount":null,"files":["Credit Note for invoice No 004.pdf"],"reason":"2% retention against invoice"},{"ref":"07","cn_date":null,"received_date":"2026-06-02","invoices":[],"amount":null,"files":["CN 07 - ALCOVE DEVELOPERS LLP.pdf"],"reason":"2% retention against invoice (invoices 070-073)"},{"ref":"10","cn_date":null,"received_date":"2026-06-02","invoices":[],"amount":null,"files":["CN 10 - ALCOVE DEVELOPERS LLP (2).pdf"],"reason":"2% retention against invoice (invoices 070-073)"},{"ref":"08","cn_date":null,"received_date":"2026-06-02","invoices":[],"amount":null,"files":["CN 08 - ALCOVE DEVELOPERS LLP.pdf"],"reason":"2% retention against invoice (invoices 070-073)"},{"ref":"09","cn_date":null,"received_date":"2026-06-02","invoices":[],"amount":null,"files":["CN 09 - ALCOVE DEVELOPERS LLP.pdf"],"reason":"2% retention against invoice (invoices 070-073)"}],"pending":[],"summary":"Payment to GenX to be made after 2% deduction; internal team forwarded GenX credit notes for the listed invoices on 20 May and for GENX/26-27/070-073 on 2 June.","next_action":"Confirm credit notes are filed against each invoice and the 2% hold is applied in the ledger.","last_activity":"2026-06-02","in_period":true,"confidence":"medium"},{"threadId":"19e401e46079461c","subject":"Invoice stuck for audit compliance","vendor":"Naveen Trading Corporation","vendorKey":"naveentrading","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":"1","cn_date":null,"received_date":"2026-05-26","invoices":["NTC-029"],"amount":null,"files":["CREDIT NOTE - 1.pdf"],"reason":"20 kg GI strip at Rs 74/kg"}],"pending":[],"summary":"Audit-compliance requests to several vendors; Naveen Trading sent credit note 1 for invoice NTC-029 on 26 May along with the test certificate. Other items concern warranty or MTC.","next_action":"File the Naveen Trading credit note against NTC-029 and update the audit tracker.","last_activity":"2026-05-27","in_period":true,"confidence":"medium"},{"threadId":"19e408a2b3ba9622","subject":"PS AGENCY credit note 2125 invoice","vendor":"PS Agency","vendorKey":"psagency","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":"2026-05-19","received_date":"2026-05-19","invoices":[],"amount":4432,"files":["Credit Note_2_19_05_26_ORIGINAL.pdf"],"reason":"sale return"}],"pending":[],"summary":"PS Agency issued a sale-return credit note of 4432 to Alcove Developers LLP, forwarded to Dona by Deepak Singh on 19 May.","next_action":"Record the credit note against the PS Agency ledger.","last_activity":"2026-05-19","in_period":true,"confidence":"high"},{"threadId":"19e4988a061f79a5","subject":"Credit note Required for Invoice No- RMPLJAQ01092 and RMPLJAQ01091","vendor":"Balaji Traders","vendorKey":"balajitraders","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"RMPLJAQ01092","reason":"materials returned against PO 46","asked_date":"2026-05-21"},{"invoice":"RMPLJAQ01091","reason":"materials returned against PO 45","asked_date":"2026-05-21"}],"summary":"Credit notes requested from Balaji Traders for returned materials on two invoices; one gentle reminder sent on 2 June and no reply in the thread.","next_action":"Send a polite second reminder to Balaji Traders for the credit notes.","last_activity":"2026-06-02","in_period":true,"confidence":"high"},{"threadId":"19e4f10f092ed4f6","subject":"Invoice stuck for audit compliance","vendor":"Universal Energy Solutions Pvt Ltd","vendorKey":"universalenergysolutions","entity":"Alcove Developers LLP","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"SER/25-26/268","reason":"credit note of Rs 5,05,302; vendor awaits new PO before revised invoice and credit note","asked_date":"2026-05-22"}],"summary":"Credit note of Rs 5,05,302 requested for SER/25-26/268; vendor says it needs a new PO to raise a revised invoice first and has reminded through 21 July.","next_action":"Politely follow up with the execution and purchase teams to issue the PO so the vendor can send the credit note.","last_activity":"2026-07-21","in_period":true,"confidence":"medium"},{"threadId":"19e544f86afed292","subject":"Fw: ALCOVE DEV- OS LIST AS ON 23.05.2026","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"partial","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-05-25","invoices":["JCWH-MEH007542"],"amount":null,"files":["ALCOVE DEV- CN AGAINST INV. NO. MEH007542.pdf"],"reason":"outstanding credit note on invoice"}],"pending":[{"invoice":"JCPL-UN-6025497","reason":"credit note awaited (invoice amount 1402)","asked_date":"2026-05-25"},{"invoice":"JCWH-UN-3014581","reason":"credit note awaited (invoice amount 26653)","asked_date":"2026-05-25"},{"invoice":"JCWH-UN-3014582","reason":"credit note awaited (invoice amount 110215)","asked_date":"2026-05-25"}],"summary":"From Jaquar's outstanding list, credit note for invoice JCWH-MEH007542 received on 25 May; credit notes for three other invoices still awaited.","next_action":"Process payment on JCWH-MEH007542 and keep following up on the three pending credit notes.","last_activity":"2026-05-25","in_period":true,"confidence":"high"},{"threadId":"19e5e75b6f746586","subject":"Regarding Credit Note","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"JCPL-UN-6025497","reason":"vendor asked reason; says DTDC shows delivered, site says 1 of 3 pieces received","asked_date":"2026-05-25"},{"invoice":"JCWH-UN-3014581","reason":"difference between quotation and billing rate","asked_date":"2026-05-25"},{"invoice":"JCWH-UN-3014582","reason":"difference between quotation and billing rate","asked_date":"2026-05-25"}],"summary":"Sixteen reminders sent for three Jaquar credit notes; vendor cites rate differences and delivery queries and awaits Dona's details before closing with its commercial team.","next_action":"Politely share invoice, PO and quotation details and ask Jaquar to issue the credit notes.","last_activity":"2026-06-29","in_period":true,"confidence":"high"},{"threadId":"19e6463e7354cd16","subject":"Credit note Required","vendor":"Unknown vendor","vendorKey":"unknownvendor","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":null,"reason":"credit note for Rs 17172 plus 18% GST as per bill and PO","asked_date":"2026-05-26"}],"summary":"Anjan Mallick asked Dona to obtain a credit note from the party for Rs 17172 plus 18% GST; he followed up on 29 May.","next_action":"Identify the vendor from the attached PO, request the credit note, and update Anjan.","last_activity":"2026-05-29","in_period":true,"confidence":"low"},{"threadId":"19e6845d7eea3455","subject":"CN","vendor":"Trust Enterprise","vendorKey":"trustenterprise","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":"322","cn_date":null,"received_date":"2026-05-27","invoices":[],"amount":null,"files":["Credit Note_322.pdf"],"reason":"reason not stated"}],"pending":[],"summary":"Trust Enterprise emailed a credit note PDF on 27 May with no message text.","next_action":"Check the credit note against the related invoice and record it.","last_activity":"2026-05-27","in_period":true,"confidence":"medium"},{"threadId":"19e7234fbb1261f5","subject":"Invoice stuck for audit compliance","vendor":"Buildon Ceramics","vendorKey":"buildonceramics","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":"01","cn_date":"2026-06-04","received_date":"2026-06-04","invoices":["38"],"amount":null,"files":["Credit Note No.01 Dt. 04.06.2026 -  INVOICE NO.38  BUILDON CERAMICS DT.08.03.2026.pdf"],"reason":"rate difference against PO"}],"pending":[],"summary":"Dona flagged invoice 38 for a rate above PO; Buildon Ceramics sent credit note 01 on 4 June. Other items in the thread concern MTC.","next_action":"Record credit note 01 against invoice 38 and release the bill.","last_activity":"2026-06-04","in_period":true,"confidence":"high"},{"threadId":"19e72891fb92e4f8","subject":"ADDITION OF NEW REMARKS IN PO","vendor":"Unknown vendor","vendorKey":"unknownvendor","entity":"Other/Unknown","category":"mentioned","status":"info","credit_notes":[],"pending":[],"summary":"Dona asked Deepak Singh to add a PO clause holding back a percentage for MTC, warranty and credit note, per management instruction.","next_action":"","last_activity":"2026-05-29","in_period":true,"confidence":"high"},{"threadId":"19e73bb9039f7f62","subject":"Credit note Required","vendor":"Universal Energy Solutions Pvt Ltd","vendorKey":"universalenergysolutions","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-05-30","invoices":["SUP/26-27/006"],"amount":17172,"files":["Credit Note_Equipment Bill Alcove Marketing Office 2nd Flr.pdf"],"reason":"rate difference invoice vs PO"}],"pending":[],"summary":"Vendor sent the requested rate-difference credit note on 30 May; later chased payment, and Dona confirmed payment made on 16 July.","next_action":"","last_activity":"2026-07-16","in_period":true,"confidence":"high"},{"threadId":"19e8c0266646c995","subject":"Invoice stuck for audit compliance","vendor":"KMN Fabrication Co","vendorKey":"kmnfabrication","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"294","reason":"credit note required for audit compliance","asked_date":"2026-06-03"}],"summary":"Dona asked KMN Fabrication for a credit note against invoice 294 for audit compliance; no reply in thread. Aurum India was asked separately for a warranty certificate.","next_action":"Kindly follow up politely with KMN Fabrication for the credit note against invoice 294.","last_activity":"2026-06-03","in_period":true,"confidence":"medium"},{"threadId":"19e8cc10ad769e2c","subject":"CREDIT NOTE OF BALAJI TRADERS","vendor":"Balaji Traders","vendorKey":"balajitraders","entity":"Sundarvan","category":"received","status":"closed","credit_notes":[{"ref":"RMPLJAQCN047","cn_date":null,"received_date":"2026-06-03","invoices":[],"amount":null,"files":["Credit Note_RMPLJAQCN047_Sundarvan Realty Private Limited.pdf"],"reason":"not stated"},{"ref":"RMPLJAQCN048","cn_date":null,"received_date":"2026-06-03","invoices":[],"amount":null,"files":["Credit Note_RMPLJAQCN048_Sundarvan Realty Private Limited.pdf"],"reason":"not stated"}],"pending":[],"summary":"Dona forwarded two Balaji Traders credit notes addressed to Sundarvan Realty to Anjan Mallick for booking.","next_action":"","last_activity":"2026-06-03","in_period":true,"confidence":"medium"},{"threadId":"19e91a814245c1cc","subject":"BILL SETTLEMENT// GREENPLY IND LTD//SUNDARVAN OFFICE","vendor":"Greenply Industries","vendorKey":"greenplyindustries","entity":"Sundarvan","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":null,"reason":"credit note and fresh invoice in Sundarvan Realty name (invoice wrongly issued to Alcove Developers LLP)","asked_date":"2026-06-04"}],"summary":"Greenply invoiced Alcove Developers LLP instead of Sundarvan Realty; Accounts advised obtaining a credit note and fresh invoice, while purchase raised GST concerns. Unresolved.","next_action":"Kindly note the decision on credit note and re-invoicing from Purchase and Accounts, and follow up with vendor if instructed.","last_activity":"2026-06-04","in_period":true,"confidence":"medium"},{"threadId":"19e926f70c91c71d","subject":"Credit note Required for Invoice No :TCH/SA2627/00424","vendor":"Unknown vendor","vendorKey":"unknownvendor","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"TCH/SA2627/00424","reason":"credit note Rs 3050.84 plus 18% GST as per PO","asked_date":"2026-06-04"}],"summary":"Anjan Mallick repeatedly asked Dona for a vendor credit note of Rs 3050.84 plus 18% GST against invoice TCH/SA2627/00424; two reminders sent, still awaited.","next_action":"Kindly update Anjan Mallick and chase the vendor for the credit note.","last_activity":"2026-06-22","in_period":true,"confidence":"medium"},{"threadId":"19e9818dda025473","subject":"CREDIT NOTE // BALAJI TRADERS // CP SANITARY// SUNDARVAN","vendor":"Balaji Traders","vendorKey":"balajitraders","entity":"Sundarvan","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-06-05","invoices":[],"amount":null,"files":["CREDIT NOTE.pdf","CREDIT NOTE-2.pdf"],"reason":"not stated"}],"pending":[],"summary":"Vivek forwarded two Balaji Traders credit notes for Sundarvan (CP Sanitary) to Surya Ji for booking and payment.","next_action":"","last_activity":"2026-06-05","in_period":true,"confidence":"medium"},{"threadId":"19ea72eb8f30b9af","subject":"TMT shortage received from Maina International Ltd","vendor":"Maina International Ltd","vendorKey":"mainainternational","entity":"Amba Highrise","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"MIL/2627/0203","reason":"TMT shortage 200 Kg against PO-187, credit note Rs 11,423 incl 18% GST","asked_date":"2026-06-08"}],"summary":"Store requested a credit note for TMT shortage on invoice MIL/2627/0203, later revised to 200 Kg; Dona sent a reminder on 12 June, no vendor reply.","next_action":"Kindly send a further polite reminder to Maina International for the Rs 11,423 credit note.","last_activity":"2026-06-12","in_period":true,"confidence":"high"},{"threadId":"19eab54ca5d7400f","subject":"Credit note Required for Invoice No :TCH/SA2627/00424","vendor":"Unknown vendor","vendorKey":"unknownvendor","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"TCH/SA2627/00424","reason":"credit note Rs 3050.84 plus 18% GST as per PO","asked_date":"2026-06-09"}],"summary":"Dona asked the vendor for a credit note of Rs 3050.84 plus 18% GST against invoice TCH/SA2627/00424 for audit compliance; no reply in thread.","next_action":"Kindly follow up with the vendor for the credit note.","last_activity":"2026-06-09","in_period":true,"confidence":"medium"},{"threadId":"19ebff693a5af011","subject":"Fwd: INVOICE & CREDIT NOTE","vendor":"Grani Stone India","vendorKey":"granistoneindia","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-06-13","invoices":[],"amount":null,"files":["Alcove Developers LLP Credit Note_8.pdf"],"reason":"not stated"}],"pending":[],"summary":"Riya forwarded the vendor's tax invoice and credit note copy for Alcove Developers LLP to Jiban Da.","next_action":"","last_activity":"2026-06-13","in_period":true,"confidence":"medium"},{"threadId":"19ecb4b5bddef4fc","subject":"FW: ALCOVE DEV- CREDIT NOTE","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"received","status":"open","credit_notes":[{"ref":"ECAL22/26-27/M0002","cn_date":"2026-06-15","received_date":"2026-06-15","invoices":["JCWH-MEH001201"],"amount":4132.36,"files":["ALCOVE DEV- JCPLMEH CN DT 15.06.2026.pdf"],"reason":"transit damage"},{"ref":"ECAL22/26-27/M0003","cn_date":"2026-06-15","received_date":"2026-06-15","invoices":["JCWH-MEH000799"],"amount":4533.56,"files":["ALCOVE DEV- JCPLMEH CN DT 15.06.2026.pdf"],"reason":"transit damage"},{"ref":"ECAL22/26-27/M0004","cn_date":"2026-06-15","received_date":"2026-06-15","invoices":["JCWH-MEH000990"],"amount":12908.61,"files":["ALCOVE DEV- JCPLMEH CN DT 15.06.2026.pdf"],"reason":"transit damage"}],"pending":[],"summary":"Jaquar sent three transit-damage credit notes totalling Rs 21,574.53; in September Vivek said items cannot be traced from the credit note and Jaquar redirected him to its contacts.","next_action":"Kindly coordinate with Shankar Singh at Jaquar for item-wise details to trace the credit notes.","last_activity":"2026-09-10","in_period":true,"confidence":"high"},{"threadId":"19ecee5779b8f618","subject":"Credit Note (Sanitarywares)- Alcove","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"received","status":"open","credit_notes":[{"ref":"ECAL22/26-27/M0002","cn_date":null,"received_date":"2026-06-16","invoices":["JCWH-MEH001201"],"amount":4132.36,"files":[],"reason":"transit damage"},{"ref":"ECAL22/26-27/M0003","cn_date":null,"received_date":"2026-06-16","invoices":["JCWH-MEH000799"],"amount":4533.56,"files":[],"reason":"transit damage"},{"ref":"ECAL22/26-27/M0004","cn_date":null,"received_date":"2026-06-16","invoices":["JCWH-MEH000990"],"amount":12908.61,"files":[],"reason":"transit damage"}],"pending":[{"invoice":null,"reason":"credit note PDF copy not attached to email","asked_date":"2026-06-16"}],"summary":"Jaquar listed three sanitaryware transit-damage credit notes totalling Rs 21,574.53 but attached no file; Dona reported no attachment on 16 June.","next_action":"Kindly confirm the credit note PDF was received separately from Jaquar.","last_activity":"2026-06-16","in_period":true,"confidence":"medium"},{"threadId":"19ecf600a5ecb5da","subject":"Payment","vendor":"Shree Luxmi Traders","vendorKey":"shreeluxmitraders","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":"CN-28","cn_date":null,"received_date":"2026-08-14","invoices":["S/88/26-27"],"amount":null,"files":["CN- 28.pdf"],"reason":"quantity difference on invoice"}],"pending":[],"summary":"Vendor chased payment for S/88/26-27; after Alcove asked for a credit note, vendor sent CN-28 on 14 Aug and keeps asking for payment release.","next_action":"Process payment of S/88/26-27 net of CN-28 and reply to vendor's payment reminders (portal reference).","last_activity":"2026-08-24","in_period":true,"confidence":"medium"},{"threadId":"19ee37cf780c1703","subject":"CREDIT NOTE AGST INV. NO. JCPLUN6025497","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":"2026-06-18","received_date":"2026-06-20","invoices":["JCPL-UN-6025497"],"amount":null,"files":["ALCOVE DEV- JCPLUN6 CN DT 18.06.2026 AGST INV. NO. JCPL-UN-6025497.pdf"],"reason":"reason not stated"}],"pending":[],"summary":"Jaquar's accounts team sent a copy of the credit note dated 18.06.2026 against invoice JCPL-UN-6025497; Dona forwarded it to purchase head on 10 Sep.","next_action":"","last_activity":"2026-09-10","in_period":true,"confidence":"high"},{"threadId":"19efddcfe23356cc","subject":"FW: ALCOVE CREDIT NOTE DT 25.06.2026","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":"2026-06-25","received_date":"2026-06-25","invoices":["KOL5520"],"amount":null,"files":["ALCOVE DEVELOPERS LLP- AGAINST INV.NO. KOL5520.pdf"],"reason":"reason not stated"},{"ref":null,"cn_date":"2026-06-25","received_date":"2026-06-25","invoices":["UN3-14581"],"amount":null,"files":["ALCOVE DEVELOPERS LLP- AGAINST INV. NO. UN3-14581.pdf"],"reason":"reason not stated"}],"pending":[],"summary":"Jaquar forwarded two credit notes dated 25.06.2026 against invoices KOL5520 and UN3-14581 for Alcove Developers LLP.","next_action":"","last_activity":"2026-06-25","in_period":true,"confidence":"high"},{"threadId":"19f036de33fa477a","subject":"Invoice stuck for audit compliance","vendor":"East West Tiles","vendorKey":"eastwesttiles","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":"EWT_CN_26-27_046","cn_date":null,"received_date":"2026-06-30","invoices":["EWT/26-27/0341"],"amount":null,"files":["Credit Note_EWT_CN_26-27_046.pdf"],"reason":"10 broken tiles"}],"pending":[],"summary":"Dona asked East West Tiles for MTC and a credit note for 10 broken items on EWT/26-27/0341; the vendor sent the credit note on 30 Jun.","next_action":"","last_activity":"2026-06-30","in_period":true,"confidence":"high"},{"threadId":"19f17dd105577568","subject":"Regarding materials shortage from Jayshree udyog . (Challan No-2609512534)Po no-3421","vendor":"Jayshree Udyog","vendorKey":"jayshreeudyog","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":"JSUCN_26-27_142","cn_date":null,"received_date":"2026-07-02","invoices":[],"amount":null,"files":["Credit Note_JSUCN_26-27_142.pdf"],"reason":"cement short weight 210 kg"}],"pending":[],"summary":"Serampore store reported 210 kg shortage of PPC cement on challan 2609512534 (PO-3421); Jayshree Udyog sent credit note on 2 Jul.","next_action":"","last_activity":"2026-07-02","in_period":true,"confidence":"high"},{"threadId":"19f218aa17db0c94","subject":"Invoice stuck for audit compliance","vendor":"East West Tiles","vendorKey":"eastwesttiles","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":"EWT_CN_26-27_050","cn_date":null,"received_date":"2026-07-06","invoices":["EWT/26-27/0225"],"amount":null,"files":["Credit Note_EWT_CN_26-27_050.pdf"],"reason":"18 broken tiles"}],"pending":[],"summary":"Dona requested a credit note for 18 broken tiles on EWT/26-27/0225, reminded on 6 Jul; vendor sent the credit note the same day. Other vendors in thread were for other documents.","next_action":"","last_activity":"2026-07-07","in_period":true,"confidence":"high"},{"threadId":"19f59f25ea69ec61","subject":"RE: Required bill details for adjustment Pmt dt 09.07.2026","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"adjusted","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":null,"invoices":["JCWH-MEH001201"],"amount":4132,"files":[],"reason":"deduction adjusted against credit note"}],"pending":[{"invoice":"JCWH-MEH001201","reason":"Rs.97205 on hold for MTC and warranty certificate","asked_date":"2026-07-14"}],"summary":"Jaquar asked about deductions on payment of 9 Jul; Alcove said Rs.4132 was adjusted with a credit note and Rs.97205 held for MTC and warranty certificate against JCWH-MEH001201.","next_action":"Share MTC and warranty certificate with Jaquar to release the Rs.97205 held; confirm credit note details for the Rs.4132 adjustment.","last_activity":"2026-07-14","in_period":true,"confidence":"medium"},{"threadId":"19f646e5025d581d","subject":"Invoice stuck for audit compliance","vendor":"Greenply Industries","vendorKey":"greenplyindustries","entity":"Other/Unknown","category":"partial","status":"open","credit_notes":[{"ref":"JSUCN_26-27_225","cn_date":null,"received_date":"2026-09-04","invoices":["JSU/26-27/1845"],"amount":null,"files":["Credit Note_JSUCN_26-27_225.pdf"],"reason":"Jayshree Udyog: MTC-linked short supply"},{"ref":"BRCN_26-27_11","cn_date":null,"received_date":"2026-09-04","invoices":["JSU/26-27/1845"],"amount":null,"files":["Credit Note_BRCN_26-27_11.pdf"],"reason":"Jayshree Udyog: transport charges"}],"pending":[{"invoice":"IN1907007582","reason":"Greenply credit note for 1 pc material not supplied","asked_date":"2026-08-01"},{"invoice":"HI/2026-27/0081","reason":"Hitech Infotele credit note Rs.358 for PO rate mismatch","asked_date":"2026-08-13"}],"summary":"Multi-vendor audit thread: Greenply credit note on IN1907007582 still awaited after six reminders; Jayshree Udyog sent credit notes on 4 Sep; Hitech Rs.358 credit note unanswered.","next_action":"Follow up politely with Greenply (Devesh) on IN1907007582 and with Hitech Infotele on Rs.358 credit note; file Jayshree credit notes.","last_activity":"2026-09-22","in_period":true,"confidence":"medium"},{"threadId":"19f75361ba32c3a5","subject":"Regarding material shortage","vendor":"Unknown vendor","vendorKey":"unknownvendor","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-07-23","invoices":[],"amount":null,"files":["Credit Note.pdf"],"reason":"PPC cement short 410 kg"}],"pending":[],"summary":"Alcove asked the vendor for a revised invoice or credit note for 410 kg PPC cement shortage on challan 1040; vendor sent credit note on 23 Jul.","next_action":"","last_activity":"2026-07-23","in_period":true,"confidence":"medium"},{"threadId":"19f7f2bde9e1ac4e","subject":"Invoice stuck for audit compliance","vendor":"Shree Akshat Plastic","vendorKey":"shreeakshatplastic","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"SAP/26-27/0627","reason":"Credit note for material returned to HO","asked_date":"2026-07-20"},{"invoice":"SAP/26-27/0631","reason":"Credit note for all materials returned","asked_date":"2026-08-25"}],"summary":"Credit notes requested for returned material on two invoices; on 27 Aug vendor sent two scanned documents, not confirmed in the email as credit notes.","next_action":"Open the two scanned PDFs sent on 27 Aug and confirm they are credit notes; if so, close this item.","last_activity":"2026-08-27","in_period":true,"confidence":"low"},{"threadId":"19f82f67e8990a75","subject":"NEED CREDIT NOTE","vendor":"Unknown vendor","vendorKey":"unknownvendor","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":null,"reason":"Credit note for 14 pcs returned to vendor","asked_date":"2026-07-21"}],"summary":"Dona requested a credit note for 14 returned pcs on 21 Jul; four reminders sent up to 11 Sep with no vendor reply in the thread.","next_action":"Try reaching the vendor by another contact or escalate to the purchase manager.","last_activity":"2026-09-11","in_period":true,"confidence":"medium"},{"threadId":"19f831ac2e4c3e1e","subject":"NEED CREDIT NOTE","vendor":"Ori-Plast Ltd","vendorKey":"oriplast","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-08-14","invoices":[],"amount":null,"files":["kdipl_SalesReturn(CrNote).pdf"],"reason":"return of 7 pieces"}],"pending":[],"summary":"Alcove requested a credit note for 7 returned pieces on 21 Jul and reminded on 5 Aug; Ori-Plast sent the credit note on 14 Aug.","next_action":"Record the credit note against the returned-goods invoice in the ledger.","last_activity":"2026-08-14","in_period":true,"confidence":"high"},{"threadId":"19f98f3d948cd2d3","subject":"Invoice stuck for audit compliance","vendor":"Maya Battery & Electrical Works","vendorKey":"mayabattery","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-07-29","invoices":["MB/0243/26-27","MB/0639/26-27"],"amount":null,"files":["0010.pdf","0030.pdf"],"reason":"re-issued with authorised signature"}],"pending":[],"summary":"Credit notes for two invoices lacked authorised signature; Maya Battery sent digitally signed credit notes on 29 Jul, resolving the audit hold.","next_action":"Forward the signed credit notes to audit and release the held invoices.","last_activity":"2026-07-29","in_period":true,"confidence":"high"},{"threadId":"19fa8480cc890cd5","subject":"OUTSTANDING STATUS","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"JCPL-UN-1006423","reason":"credit note for 9 pcs required","asked_date":"2026-07-30"},{"invoice":"JCWH-MEH001489","reason":"credit note required","asked_date":"2026-07-30"}],"summary":"Jaquar sent an outstanding statement and chased payment; Dona listed pending bills needing credit notes (9 pcs on one invoice) plus MTC and warranty certificates.","next_action":"Follow up politely with Jaquar for the two credit notes and the MTC/warranty documents.","last_activity":"2026-07-30","in_period":true,"confidence":"medium"},{"threadId":"19fb7e4f33a0aeab","subject":"Re: Credit note","vendor":"Jayshree Udyog","vendorKey":"jayshreeudyog","entity":"Amba Highrise","category":"received","status":"closed","credit_notes":[{"ref":"JSUCN_26-27_218","cn_date":null,"received_date":"2026-07-31","invoices":[],"amount":null,"files":["Credit Note_JSUCN_26-27_218.pdf"],"reason":"cement PPC weight shortage"},{"ref":"JSUCN_26-27_219","cn_date":null,"received_date":"2026-07-31","invoices":[],"amount":null,"files":["Credit Note_JSUCN_26-27_219.pdf"],"reason":"cement PPC weight shortage"},{"ref":"BRCN_26-27_09","cn_date":null,"received_date":"2026-07-31","invoices":[],"amount":null,"files":["Credit Note_BRCN_26-27_09.pdf"],"reason":"cement PPC weight shortage"},{"ref":"BRCN_26-27_10","cn_date":null,"received_date":"2026-07-31","invoices":[],"amount":null,"files":["Credit Note_BRCN_26-27_10.pdf"],"reason":"cement PPC weight shortage"}],"pending":[],"summary":"Store reported cement shortage (250 kg and 190 kg) on challans 8248 and 8249 against PO-17499; Jayshree Udyog sent four credit notes on 31 Jul.","next_action":"Match the four credit notes to the bills and proceed with bill processing.","last_activity":"2026-07-31","in_period":true,"confidence":"medium"},{"threadId":"19fdc348a1ad479a","subject":"Invoice Cancelled request, Invoice No-HI/2026-27/0029 (Hitech Infotele Pvt Ltd)","vendor":"Hitech Infotele Pvt Ltd","vendorKey":"hitechinfotele","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-08-10","invoices":["HI/2026-27/0029"],"amount":null,"files":["ALCOVE-CN(INVOICE NO-29).pdf"],"reason":"duplicate invoice cancelled"}],"pending":[],"summary":"Store asked Hitech Infotele to cancel duplicate invoice 0029; vendor sent a credit note on 10 Aug and internal teams are arranging manual entry.","next_action":"Confirm the credit note is entered manually and the duplicate bill is closed.","last_activity":"2026-08-18","in_period":true,"confidence":"high"},{"threadId":"19fe75e4eb9d1f60","subject":"Invoice stuck for audit compliance","vendor":"Dhanuka Fittings","vendorKey":"dhanukafittings","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":"CN-000015","cn_date":null,"received_date":"2026-08-10","invoices":["INV-00588"],"amount":null,"files":["CN-000015 (1).pdf"],"reason":"rate variance as per PO"}],"pending":[],"summary":"Dona requested a credit note of Rs.1,463 for rate variance on INV-00588; Dhanuka Fittings sent CN-000015 the next day.","next_action":"Verify the credit note amount against the Rs.1,463 requested and release the invoice.","last_activity":"2026-08-10","in_period":true,"confidence":"high"},{"threadId":"19fea92ed32cb180","subject":"Credit Note","vendor":"Maya Battery & Electrical Works","vendorKey":"mayabattery","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-08-10","invoices":[],"amount":null,"files":["Alcove POD.pdf"],"reason":"signed and stamped copy"}],"pending":[],"summary":"Maya Battery sent a signed and stamped copy of a credit note, noting it was also handed to Alcove's site representative.","next_action":"File the signed copy and link it to the relevant invoice.","last_activity":"2026-08-10","in_period":true,"confidence":"medium"},{"threadId":"1a0233befefb91c8","subject":"TMT shortage received from AIC IRON INDUSTRIES PRIVATE LIMITED","vendor":"AIC Iron Industries Pvt Ltd","vendorKey":"aicironindustries","entity":"Amba Highrise","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-08-26","invoices":["N126Y-03109"],"amount":null,"files":["AMBA HIGHRISE CN.pdf"],"reason":"TMT 100 kg weight shortage"}],"pending":[],"summary":"Store requested a credit note for 100 kg TMT shortage on invoice N126Y-03109 (PO-259); AIC Iron sent the credit note on 26 Aug.","next_action":"Process the bill using the received credit note.","last_activity":"2026-08-26","in_period":true,"confidence":"high"},{"threadId":"1a03e1d3701e25e4","subject":"Urgent Follow-Up: Request for Release of Outstanding Payment","vendor":"Hitech Infotele Pvt Ltd","vendorKey":"hitechinfotele","entity":"Other/Unknown","category":"received","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-09-02","invoices":["HI/2026-27/0081","HI/2026-27/50"],"amount":null,"files":["Credit Note Printing.pdf-4.pdf","Credit Note Printing.pdf-5.pdf","Credit Note Printing.pdf-6.pdf"],"reason":"rate mismatch"}],"pending":[],"summary":"Dona requested a Rs.358 rate-mismatch credit note on invoice 0081; vendor queried the amount, sent credit note files on 2 Sep, and is chasing payment.","next_action":"Verify the credit notes against the rate mismatch on both invoices, then confirm the payment date.","last_activity":"2026-09-03","in_period":true,"confidence":"medium"},{"threadId":"1a04bb64c70543e2","subject":"RE: Invoice stuck for audit compliance// INEX","vendor":"Inex Collection Pvt Ltd","vendorKey":"inexcollection","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":null,"reason":"unit mismatch (kg vs pcs) and weight discrepancy; credit/debit note to be settled after supplementary PO 17823","asked_date":"2026-09-15"}],"summary":"Long-running Inex invoice dispute over PO unit mismatch and weight; purchase head shared supplementary PO 17823 and asked Dona to settle debit/credit note with the vendor.","next_action":"Discuss with Inex and agree the credit or debit note, then arrange the balance payment.","last_activity":"2026-09-15","in_period":true,"confidence":"medium"},{"threadId":"1a052eefe2408605","subject":"Invoice stuck for audit compliance","vendor":"Wenewedge Infracon Pvt Ltd","vendorKey":"wenewedgeinfracon","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":"2026-07-20","received_date":"2026-09-01","invoices":["WNEI/26-27/060"],"amount":null,"files":["Alcove Developers LLP Inv 059 & Credit Note dt 20.07.26.pdf"],"reason":"audit compliance credit note"},{"ref":null,"cn_date":null,"received_date":"2026-09-02","invoices":["TE/0758/26-2027"],"amount":null,"files":["Credit Note_85.pdf"],"reason":"Trust Enterprise credit note"}],"pending":[],"summary":"Audit-hold thread covering several vendors; Wenewedge sent its credit note on 1 Sep and Trust Enterprise sent one for TE/0758 on 2 Sep.","next_action":"Record both credit notes; the Tirthankar rectified invoices remain a separate follow-up.","last_activity":"2026-09-14","in_period":true,"confidence":"medium"},{"threadId":"1a06116f2feb8f59","subject":"Credit Note against onvoice no FI/25-26/12831","vendor":"Fasteners India","vendorKey":"fastenersindia","entity":"Other/Unknown","category":"received","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-09-02","invoices":["FI/25-26/12831"],"amount":null,"files":["12831 cr note.pdf"],"reason":"credit against invoice (reason not stated)"}],"pending":[],"summary":"Fasteners India emailed a credit note against invoice FI/25-26/12831 and asked Alcove to send the material to the Kolkata office and inform them for collection.","next_action":"Please book the credit note and confirm to the vendor about the material handover/collection.","last_activity":"2026-09-02","in_period":true,"confidence":"medium"},{"threadId":"1a06194bf4430020","subject":"Fwd: Ledger required for J.P Ganeriwala & Co","vendor":"J.P. Ganeriwala & Co","vendorKey":"jpganeriwala","entity":"Other/Unknown","category":"received","status":"open","credit_notes":[{"ref":"CN055","cn_date":null,"received_date":"2026-09-03","invoices":[],"amount":null,"files":["CN055.pdf"],"reason":"earlier issued, mismatch in reconciliation"},{"ref":"CN010","cn_date":null,"received_date":"2026-09-03","invoices":[],"amount":null,"files":["CN010.pdf"],"reason":"earlier issued, mismatch in reconciliation"}],"pending":[],"summary":"Vendor asked for FY 2026-27 bill-wise ledger; after reconciliation it sent two earlier-issued credit note copies (CN055, CN010) asking Alcove to reconcile them.","next_action":"Please reconcile the two credit notes in the payable ledger and confirm to the vendor.","last_activity":"2026-09-03","in_period":true,"confidence":"medium"},{"threadId":"1a07a5ac3e34e85f","subject":"CREDIT NOTE AGST INV. NO. JCWHMEH002261 DT 29.07.2026","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":"2026-09-05","received_date":"2026-09-07","invoices":["JCWH-MEH002261"],"amount":null,"files":["ALCOVE DEV- JCWHMEH CN DT 05.09.2026 AGST INV. NO. JCWH-MEH002261 29072026.pdf"],"reason":"credit against invoice (reason not stated)"}],"pending":[],"summary":"Jaquar sent the credit note dated 05.09.2026 against invoice JCWH-MEH002261 dated 29.07.2026; Dona forwarded it to the purchase head on 10 Sep.","next_action":"","last_activity":"2026-09-10","in_period":true,"confidence":"high"},{"threadId":"1a07fd94f066fb81","subject":"Credit Note Pending – Invoice No. JCPL-UN-1006423 & JCWH-MEH001489","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"partial","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-09-09","invoices":["JCWH-MEH001489"],"amount":null,"files":["ALCOVE DEV- CN AGAINST INV. NO. JCWH-MEH001489.pdf"],"reason":"2 pcs broken on receipt"},{"ref":null,"cn_date":"2026-09-05","received_date":"2026-09-10","invoices":["JCWH-MEH002261"],"amount":null,"files":["ALCOVE DEV- JCWHMEH CN DT 05.09.2026 AGST INV. NO. JCWH-MEH002261 29072026.pdf"],"reason":"credit against invoice (reason not stated)"},{"ref":null,"cn_date":"2026-06-18","received_date":"2026-09-10","invoices":["JCPL-UN-6025497"],"amount":null,"files":["ALCOVE DEV- JCPLUN6 CN DT 18.06.2026 AGST INV. NO. JCPL-UN-6025497.pdf"],"reason":"credit against invoice (reason not stated)"},{"ref":null,"cn_date":"2026-06-15","received_date":"2026-09-10","invoices":[],"amount":null,"files":["ALCOVE DEV- JCPLMEH CN DT 15.06.2026 (2).pdf"],"reason":"credit against invoice (reason not stated)"}],"pending":[{"invoice":"JCPL-UN-1006423","reason":"9 pcs received in excess of ordered qty (PO 15713); vendor reviewing quantities","asked_date":"2026-09-08"}],"summary":"Dona chased Jaquar for credit notes on two invoices; CN for JCWH-MEH001489 arrived, while JCPL-UN-1006423 (9 pcs excess) is still unresolved and reminded on 14 Sep.","next_action":"Please follow up with Jaquar politely on the pending credit note/qty reconciliation for JCPL-UN-1006423.","last_activity":"2026-09-14","in_period":true,"confidence":"medium"},{"threadId":"1a08b23a9aef87cf","subject":"Invoice stuck for audit compliance","vendor":"Glaze Architecture Pvt Ltd","vendorKey":"glazearchitecture","entity":"Other/Unknown","category":"requested","status":"open","credit_notes":[],"pending":[{"invoice":"GA/03975/2627","reason":"Insurance charges credit note required (Glaze Architecture)","asked_date":"2026-09-11"},{"invoice":"IN1907001351","reason":"Credit note required for this bill (Greenply Industries Limited)","asked_date":"2026-09-14"}],"summary":"Audit-compliance chase: credit notes requested from Glaze Architecture (insurance charges) and Greenply (IN1907001351); neither received yet, Glaze reminded on 14 Sep.","next_action":"Please send a polite reminder to Glaze and Greenply for the pending credit notes.","last_activity":"2026-09-14","in_period":true,"confidence":"medium"},{"threadId":"1a0901fff848c710","subject":"Invoice stuck for audit compliance","vendor":"Grani Superstone India Pvt Ltd","vendorKey":"granisuperstoneindia","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-09-11","invoices":["GSI/26-27"],"amount":105,"files":["Credit Note_20.pdf"],"reason":"short supply 1.1867 sqm"}],"pending":[],"summary":"Dona requested a credit note for short quantity of 1.1867 sqm (Rs 105 incl. GST); Grani Superstone sent it the same day.","next_action":"","last_activity":"2026-09-11","in_period":true,"confidence":"high"},{"threadId":"1a0ae7185f422ff8","subject":"Invoice stuck for audit compliance","vendor":"Shree Cement Limited","vendorKey":"shreecement","entity":"Other/Unknown","category":"partial","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-09-17","invoices":["PKTC/461/26-27"],"amount":null,"files":["CREDIT NOTE.pdf"],"reason":"credit note from P K Trading (reason not stated)"}],"pending":[{"invoice":"WB2601016603","reason":"Credit note required, rate mismatch between PO and invoice (Shree Cement)","asked_date":"2026-09-23"}],"summary":"Large audit-compliance thread (mostly MTC chasing); P K Trading sent a credit note on 17 Sep, while Shree Cement's credit note for WB2601016603 is still awaited after 1 Oct reminder.","next_action":"Please keep following up with Shree Cement for the rate-mismatch credit note on WB2601016603.","last_activity":"2026-10-01","in_period":true,"confidence":"medium"},{"threadId":"1a0b313bedc6222b","subject":"CREDIT NOTE OF SHANCO","vendor":"Shanco","vendorKey":"shanco","entity":"Alcove Developers LLP","category":"received","status":"open","credit_notes":[{"ref":null,"cn_date":null,"received_date":"2026-09-18","invoices":[],"amount":null,"files":["cn-06.pdf"],"reason":"credit note (reason not stated)"}],"pending":[],"summary":"Dona forwarded Shanco's credit note to accounts; on 26 Sep Priyanka said it belongs to ADLLP, not Ajay Kumar Shroff, and asked Dona to check again.","next_action":"Please re-check the Shanco credit note entity and confirm correct booking to Priyanka.","last_activity":"2026-09-26","in_period":true,"confidence":"medium"},{"threadId":"1a0b39bd0a410ed4","subject":"Invoice stuck for audit compliance","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"received","status":"closed","credit_notes":[{"ref":null,"cn_date":"2026-09-16","received_date":"2026-09-22","invoices":["JCWH-KOL002224"],"amount":4302.87,"files":["ALCOVE DEV- JCWHMEH CN DT 16.09.2026 AGST JCWH-KOL002224 DT. 24.08.2026.pdf"],"reason":"credit requested for audit compliance"},{"ref":null,"cn_date":"2026-09-16","received_date":"2026-09-22","invoices":["JCWH-MEH002371"],"amount":4302.87,"files":["ALCOVE DEV- JCWHMEH CN DT 16.09.2026 AGST JCWH-MEH002371 DT. 21.08.2026.pdf"],"reason":"credit requested for audit compliance"}],"pending":[],"summary":"Dona requested credit notes of Rs 4302.87 each on two Jaquar invoices; Jaquar sent both credit notes dated 16.09.2026 on 22 Sep.","next_action":"","last_activity":"2026-09-22","in_period":true,"confidence":"high"},{"threadId":"1a0c8903605c14a0","subject":"ALCOVE DEV- CREDIT NOTE DTD 25.06.2026 TOWARDS RATE DIFFERENCE","vendor":"Jaquar & Co","vendorKey":"jaquar","entity":"Alcove Developers LLP","category":"received","status":"open","credit_notes":[{"ref":null,"cn_date":"2026-06-25","received_date":"2026-09-22","invoices":["JCWH-UN-3014581"],"amount":null,"files":["ALCOVE DEV- JCWHUN3 CN DT 25.06.2026 AGST JCWH-UN-3014581 DT. 26.02.2026.pdf"],"reason":"rate difference"},{"ref":null,"cn_date":"2026-06-25","received_date":"2026-09-22","invoices":["JCWH-KOL005520"],"amount":null,"files":["ALCOVE DEV- JCWHUN3 CN DT 25.06.2026 AGST JCWH-KOL005520 DT. 26.02.2026.pdf"],"reason":"rate difference"}],"pending":[],"summary":"Jaquar sent two credit notes dated 25.06.2026 for rate difference against invoices dated 26.02.2026 and asked Alcove to share bill details for adjustment.","next_action":"Please share the bill details with Jaquar (Shankar Singh) so the credit notes can be adjusted.","last_activity":"2026-09-22","in_period":true,"confidence":"high"},{"threadId":"1a0d8704aed4858c","subject":"Credit Note Deepak KOLCN105","vendor":"Balaji Traders","vendorKey":"balajitraders","entity":"Other/Unknown","category":"received","status":"closed","credit_notes":[{"ref":"RMPLKOLCN105","cn_date":null,"received_date":"2026-09-25","invoices":[],"amount":null,"files":["Credit Note_RMPLKOLCN105.pdf"],"reason":"credit note (reason not stated)"}],"pending":[],"summary":"Balaji Traders emailed credit note KOLCN105 (PDF attached, body not readable) on 25 Sep; invoice and amount not stated in the email.","next_action":"Please book the credit note and confirm the related invoice.","last_activity":"2026-09-25","in_period":true,"confidence":"medium"}]}</script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var S = { records: [], meta: {}, source: "snapshot", sel: "all", cats: {}, openOnly: false, entity: "", q: "", period: "fy", cfg: null, token: null, showAllFu: false };
+  var CAT = { received: ["Credit note received", "good"], requested: ["Requested, awaiting", "red"], partial: ["Partly received", "warn"], adjusted: ["Adjusted in payment", "neutral"], mentioned: ["Mentioned only", "neutral"], not_relevant: ["Not relevant", "neutral"] };
+
+  /* ---------- helpers ---------- */
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  var money = function (n) { return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(n); };
+  function fmtDate(iso) { if (!iso) return "-"; var d = new Date(iso + (iso.length === 10 ? "T00:00:00" : "")); return isNaN(d) ? esc(iso) : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); }
+  function daysSince(iso) { if (!iso) return null; var d = new Date(iso + "T00:00:00"); return isNaN(d) ? null : Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000)); }
+  function gmailLink(id) { return "https://mail.google.com/mail/u/0/#all/" + encodeURIComponent(id); }
+  function store(k, v) { try { localStorage.setItem("cnd2." + k, JSON.stringify(v)); } catch (e) {} }
+  function restore(k, d) { try { var v = localStorage.getItem("cnd2." + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function toast(m) { var t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(function () { t.hidden = true; }, 2800); }
+  function periodStart() {
+    var d = new Date();
+    if (S.period === "fy") return new Date(d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1, 3, 1);
+    d.setMonth(d.getMonth() - Number(S.period)); return d;
+  }
+  function ymd(d) { return d.getFullYear() + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + String(d.getDate()).padStart(2, "0"); }
+  function iso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+
+  var STOP = /\b(pvt|private|ltd|limited|llp|co|company|corp|corporation|inc|and)\b/g;
+  function canon(n) { return String(n || "").toLowerCase().replace(/&/g, " ").replace(/[^a-z0-9 ]/g, " ").replace(STOP, " ").replace(/\s+/g, ""); }
+  function normalise(recs) {
+    var keys = {}; recs.forEach(function (r) { r._k = canon(r.vendor); keys[r._k] = 1; });
+    var all = Object.keys(keys).sort(function (a, b) { return a.length - b.length; }), map = {};
+    all.forEach(function (k) { var t = k; all.forEach(function (s) { if (s !== k && s.length >= 6 && k.indexOf(s) === 0 && s.length < t.length) t = s; }); map[k] = t; });
+    var names = {};
+    recs.forEach(function (r) { r.vendorKey = map[r._k] || r._k || "unknownvendor"; var n = String(r.vendor || "Unknown vendor").replace(/[. ]+$/, ""); (names[r.vendorKey] = names[r.vendorKey] || {})[n] = (names[r.vendorKey][n] || 0) + 1; });
+    recs.forEach(function (r) { var o = names[r.vendorKey], best = ""; Object.keys(o).forEach(function (n) { if (!best || o[n] > o[best]) best = n; }); r.vendor = best; delete r._k; });
+    return recs;
+  }
+
+  /* ---------- filtering and grouping ---------- */
+  function visible() {
+    var start = iso(periodStart()), q = S.q.toLowerCase(), anyCat = Object.keys(S.cats).some(function (k) { return S.cats[k]; });
+    return S.records.filter(function (r) {
+      if ((r.last_activity || "9999") < start) return false;
+      if (r.category === "not_relevant") return false;
+      if (anyCat && !S.cats[r.category]) return false;
+      if (S.openOnly && r.status !== "open") return false;
+      if (S.entity && r.entity !== S.entity) return false;
+      if (q) {
+        var hay = [r.vendor, r.subject, r.summary].concat(r.credit_notes.map(function (c) { return (c.invoices || []).join(" ") + " " + (c.ref || ""); })).concat(r.pending.map(function (p) { return p.invoice || ""; })).join(" ").toLowerCase();
+        if (hay.indexOf(q) < 0) return false;
+      }
+      return true;
+    });
+  }
+  function groups(recs) {
+    var g = {};
+    recs.forEach(function (r) { (g[r.vendorKey] = g[r.vendorKey] || { key: r.vendorKey, name: r.vendor, recs: [] }).recs.push(r); });
+    return Object.keys(g).map(function (k) { return g[k]; }).map(function (x) {
+      x.open = x.recs.filter(function (r) { return r.status === "open"; }).length;
+      x.cn = x.recs.reduce(function (n, r) { return n + r.credit_notes.length; }, 0);
+      x.last = x.recs.reduce(function (m, r) { return (r.last_activity || "") > m ? r.last_activity : m; }, "");
+      return x;
+    }).sort(function (a, b) { return b.open - a.open || b.recs.length - a.recs.length || a.name.localeCompare(b.name); });
+  }
+
+  /* ---------- rendering ---------- */
+  function render() {
+    var vis = visible(), gs = groups(vis);
+    if (S.sel !== "all" && !gs.some(function (g) { return g.key === S.sel; })) S.sel = "all";
+    renderSide(vis, gs); renderTiles(S.sel === "all" ? vis : vis.filter(function (r) { return r.vendorKey === S.sel; }), S.sel === "all");
+    S.sel === "all" ? renderAll(vis, gs) : renderVendor(gs.filter(function (g) { return g.key === S.sel; })[0]);
+    renderFoot();
+  }
+  function renderSide(vis, gs) {
+    var h = '<button class="v" data-v="all" type="button" aria-pressed="' + (S.sel === "all") + '"><span class="n">All vendors</span><span class="badge ok">' + gs.length + "</span></button>";
+    gs.forEach(function (g) {
+      h += '<button class="v" data-v="' + esc(g.key) + '" type="button" aria-pressed="' + (S.sel === g.key) + '"><span class="n">' + esc(g.name) + "</span>" +
+        (g.open ? '<span class="badge open" title="Open items">' + g.open + "</span>" : '<span class="badge ok" title="Nothing open">' + g.recs.length + "</span>") + "</button>";
+    });
+    $("vlist").innerHTML = gs.length ? h : '<div class="empty">No vendors match.</div>';
+  }
+  function tile(k, v, s, alert) { return '<div class="card tile' + (alert ? " alert" : "") + '"><div class="k">' + k + '</div><div class="val">' + v + '</div><div class="s">' + s + "</div></div>"; }
+  function renderTiles(recs, all) {
+    var vendors = {}; recs.forEach(function (r) { vendors[r.vendorKey] = 1; });
+    var cn = 0, val = 0, withAmt = 0, open = 0, pend = 0;
+    recs.forEach(function (r) { r.credit_notes.forEach(function (c) { cn++; if (typeof c.amount === "number") { val += c.amount; withAmt++; } }); if (r.status === "open") open++; pend += r.pending.length; });
+    $("tiles").innerHTML =
+      (all ? tile("Vendors", Object.keys(vendors).length, "with credit note activity") : tile("Threads", recs.length, "emails about credit notes")) +
+      tile("Credit notes received", cn, "documents or details in emails") +
+      tile("Open items", open, pend + " invoice" + (pend === 1 ? "" : "s") + " awaiting a credit note", open > 0) +
+      tile("Value stated", withAmt ? money(val) : "-", withAmt + " of " + cn + " notes state an amount");
+  }
+  function fuRows(recs) {
+    return recs.filter(function (r) { return r.status === "open"; }).map(function (r) {
+      var asked = r.pending.map(function (p) { return p.asked_date; }).filter(Boolean).sort()[0] || r.last_activity;
+      return { r: r, days: daysSince(asked), asked: asked };
+    }).sort(function (a, b) { return (b.days || 0) - (a.days || 0); });
+  }
+  function renderAll(vis, gs) {
+    var fu = fuRows(vis), show = S.showAllFu ? fu : fu.slice(0, 8), h = "";
+    h += '<div class="section-h"><h2>Needs follow-up</h2><span class="spacer"></span><button class="btn ghost" id="copy" type="button">Copy summary</button><button class="btn ghost" id="csv" type="button">Download CSV</button></div>';
+    if (!fu.length) h += '<div class="card empty">Nothing is waiting on a vendor in this period.</div>';
+    else {
+      h += '<div class="note-box">' + show.map(function (x) {
+        var inv = x.r.pending.map(function (p) { return p.invoice; }).filter(Boolean).slice(0, 4).join(", ");
+        return '<div class="fu"><span><button data-v="' + esc(x.r.vendorKey) + '" type="button">' + esc(x.r.vendor) + "</button></span><span>" + esc(inv || x.r.summary || x.r.subject) + '</span><span class="days">' + (x.days == null ? "" : x.days + " d") + "</span></div>";
+      }).join("") + "</div>";
+      if (fu.length > 8) h += '<p><button class="btn ghost" id="morefu" type="button">' + (S.showAllFu ? "Show fewer" : "Show all " + fu.length) + "</button></p>";
+    }
+    h += '<div class="section-h"><h2>By vendor</h2></div><div class="card tbl-wrap"><table><thead><tr><th>Vendor</th><th class="num">Threads</th><th class="num">Credit notes</th><th class="num">Open</th><th>Last activity</th></tr></thead><tbody>' +
+      gs.map(function (g) { return '<tr><td><button data-v="' + esc(g.key) + '" type="button">' + esc(g.name) + '</button></td><td class="num">' + g.recs.length + '</td><td class="num">' + g.cn + '</td><td class="num">' + (g.open ? '<span class="pill red">' + g.open + "</span>" : "0") + "</td><td>" + fmtDate(g.last) + "</td></tr>"; }).join("") + "</tbody></table></div>";
+    $("view").innerHTML = h;
+  }
+  function threadHtml(r) {
+    var c = CAT[r.category] || CAT.mentioned, ents = r.entity && r.entity !== "Other/Unknown" ? '<span class="pill neutral">' + esc(r.entity) + "</span>" : "";
+    var h = '<div class="thread"><div class="d">' + fmtDate(r.last_activity) + "<small>last activity</small></div><div><div class=\"t\">" + esc(r.subject) + '</div><div class="sum">' + esc(r.summary) + "</div><div>" +
+      '<span class="pill ' + c[1] + '">' + c[0] + "</span>" + (r.status === "open" ? '<span class="pill red">Open</span>' : "") + ents + (r.confidence === "low" ? '<span class="lowc">low confidence</span> ' : "") +
+      ' <a href="' + gmailLink(r.threadId) + '" target="_blank" rel="noopener">Open in Gmail</a></div>';
+    r.credit_notes.forEach(function (n) {
+      h += '<div class="cn"><span>' + fmtDate(n.received_date || n.cn_date) + "</span>" + (n.ref ? '<span class="tag">' + esc(n.ref) + "</span>" : "") +
+        (n.invoices || []).slice(0, 8).map(function (i) { return '<span class="tag">' + esc(i) + "</span>"; }).join("") +
+        (n.reason ? "<span>" + esc(n.reason) + "</span>" : "") + (typeof n.amount === "number" ? '<span class="amt">' + money(n.amount) + "</span>" : "") +
+        (n.files || []).slice(0, 4).map(function (f) { return '<span class="tag pdf">' + esc(f) + "</span>"; }).join("") + "</div>";
+    });
+    r.pending.forEach(function (p) { h += '<div class="pend">Awaiting: ' + esc(p.invoice || "invoice not stated") + " · " + esc(p.reason || "") + (p.asked_date ? " · asked " + fmtDate(p.asked_date) : "") + "</div>"; });
+    if (r.next_action) h += '<div class="act">Next: ' + esc(r.next_action) + "</div>";
+    return h + "</div></div>";
+  }
+  function renderVendor(g) {
+    if (!g) { $("view").innerHTML = ""; return; }
+    var recs = g.recs.slice().sort(function (a, b) { return (b.last_activity || "").localeCompare(a.last_activity || ""); });
+    $("view").innerHTML = '<div class="section-h"><h2>' + esc(g.name) + '</h2><span class="spacer"></span><button class="btn ghost" id="copy" type="button">Copy summary</button><button class="btn ghost" id="csv" type="button">Download CSV</button></div><div class="card">' + recs.map(threadHtml).join("") + "</div>";
+  }
+  function renderFoot() {
+    var m = S.meta || {};
+    $("foot").textContent = (S.source === "live" ? "Live from Gmail, synced " : "Snapshot from Gmail, built ") + (m.generatedAt || "") + ". " + (m.threadsClassified || S.records.length) + " threads classified by AI. Check the PDFs for final figures before sending anything on.";
+  }
+  function fillEntities() {
+    var set = {}; S.records.forEach(function (r) { if (r.entity && r.entity !== "Other/Unknown") set[r.entity] = 1; });
+    $("entity").innerHTML = '<option value="">All entities</option>' + Object.keys(set).sort().map(function (e) { return '<option value="' + esc(e) + '">' + esc(e) + "</option>"; }).join("");
+    $("entity").value = S.entity;
+  }
+
+  /* ---------- export ---------- */
+  function currentRecs() { var v = visible(); return S.sel === "all" ? v : v.filter(function (r) { return r.vendorKey === S.sel; }); }
+  function summaryText() {
+    var recs = currentRecs(), L = ["Credit notes " + (S.sel === "all" ? "(all vendors)" : "from " + (recs[0] && recs[0].vendor)) + ", " + fmtDate(iso(periodStart())) + " to " + fmtDate(iso(new Date())), ""];
+    groups(recs).forEach(function (g) {
+      L.push(g.name + ": " + g.cn + " credit note" + (g.cn === 1 ? "" : "s") + " received, " + g.open + " open");
+      g.recs.forEach(function (r) { r.pending.forEach(function (p) { L.push("  - awaiting " + (p.invoice || "credit note") + (p.reason ? " (" + p.reason + ")" : "")); }); });
+    });
+    return L.join("\n");
+  }
+  function csvCell(s) { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  function exportCsv() {
+    var rows = [["Vendor", "Entity", "Thread", "Category", "Status", "CN ref", "CN date", "Received", "Invoices", "Amount INR", "Files", "Awaiting invoice", "Awaiting reason", "Asked", "Summary", "Next action", "Gmail"]];
+    currentRecs().forEach(function (r) {
+      var base = [r.vendor, r.entity, r.subject, r.category, r.status];
+      r.credit_notes.forEach(function (n) { rows.push(base.concat([n.ref, n.cn_date, n.received_date, (n.invoices || []).join("; "), n.amount, (n.files || []).join("; "), "", "", "", r.summary, r.next_action, gmailLink(r.threadId)])); });
+      r.pending.forEach(function (p) { rows.push(base.concat(["", "", "", "", "", "", p.invoice, p.reason, p.asked_date, r.summary, r.next_action, gmailLink(r.threadId)])); });
+      if (!r.credit_notes.length && !r.pending.length) rows.push(base.concat(["", "", "", "", "", "", "", "", "", r.summary, r.next_action, gmailLink(r.threadId)]));
+    });
+    var blob = new Blob(["﻿" + rows.map(function (x) { return x.map(csvCell).join(","); }).join("\n")], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "credit-notes-" + iso(new Date()) + ".csv"; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  function copyText(t) {
+    var ok = function () { toast("Summary copied"); };
+    var fb = function () { var ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); ok(); } catch (e) { toast("Select the text and copy it manually"); } ta.remove(); };
+    try { navigator.clipboard.writeText(t).then(ok, fb); } catch (e) { fb(); }
+  }
+
+  /* ---------- live sync: Google sign-in and Gmail via Flask server, OpenAI via Flask server ---------- */
+  function setStatus(kind, text, pct) {
+    $("dot").className = "dot " + kind; $("stext").textContent = text;
+    var bw = $("barwrap"); bw.hidden = pct == null; if (pct != null) $("bar").style.width = Math.round(pct * 100) + "%";
+  }
+  function gfetch(path) {
+    return fetch("api/gmail/" + path, { headers: { "X-CND": "1" } }).then(function (r) {
+      if (r.status === 401) { S.cfg.signedIn = false; stopWatch(); renderErp(); renderSetup(); throw { msg: "Google session expired. Press the button again to sign in." }; }
+      if (r.status === 403) throw { msg: "Gmail refused access (403). Check that the Gmail API is enabled and your account is added as a test user." };
+      if (r.status === 429) throw { msg: "Gmail is rate limiting. Wait a minute and sync again." };
+      if (!r.ok) throw { msg: "Gmail error " + r.status };
+      return r.json();
+    });
+  }
+  function b64(s) { s = s.replace(/-/g, "+").replace(/_/g, "/"); var bin = atob(s), bytes = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new TextDecoder().decode(bytes); }
+  function walk(p, o) {
+    if (p.filename) o.files.push(p.filename);
+    if (p.mimeType === "text/plain" && p.body && p.body.data) o.plain += b64(p.body.data);
+    else if (p.mimeType === "text/html" && p.body && p.body.data) o.html += b64(p.body.data);
+    (p.parts || []).forEach(function (x) { walk(x, o); });
+  }
+  function htmlToText(h) { if (!h) return ""; var d = new DOMParser().parseFromString(h, "text/html"); d.querySelectorAll("style,script").forEach(function (n) { n.remove(); }); return (d.body.textContent || "").replace(/\s+\n/g, "\n"); }
+  function trimBody(t) {
+    t = (t || "").replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
+    var i = t.search(/\n\s*(On .{5,100} wrote:|From:\s.*\n\s*Sent:|-{2,}\s*Forwarded message|_{8,})/i);
+    return i > 200 ? t.slice(0, i) : t;
+  }
+  function compact(t) {
+    var msgs = (t.messages || []).map(function (m) {
+      var h = {}; ((m.payload && m.payload.headers) || []).forEach(function (x) { h[x.name.toLowerCase()] = x.value; });
+      var o = { plain: "", html: "", files: [] }; walk(m.payload || {}, o);
+      return { date: new Date(Number(m.internalDate)).toISOString().slice(0, 10), from: h.from || "", subject: h.subject || "", files: o.files.filter(function (f) { return !/^image\d*\.(png|jpe?g|gif)$/i.test(f); }), body: trimBody(o.plain || htmlToText(o.html)) };
+    });
+    var cap = Math.max(900, Math.floor(12000 / Math.max(1, msgs.length)));
+    msgs.forEach(function (m) { m.body = m.body.slice(0, cap); });
+    return { threadId: t.id, subject: (msgs[0] && msgs[0].subject) || "", messages: msgs };
+  }
+  function pool(items, n, fn) {
+    var out = [], i = 0;
+    return Promise.all(Array.from({ length: Math.min(n, items.length) }, function () {
+      return (function next() { if (i >= items.length) return Promise.resolve(); var k = i++; return fn(items[k], k).then(function (r) { out[k] = r; }, function (e) { out[k] = { error: e }; }).then(next); })();
+    })).then(function () { return out; });
+  }
+  function classifyBatch(threads) {
+    return fetch("api/classify", { method: "POST", headers: { "Content-Type": "application/json", "X-CND": "1" }, body: JSON.stringify({ periodStart: iso(periodStart()), threads: threads }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw { msg: j.error || ("Server error " + r.status) }; return j.records; }); });
+  }
+  function sync() {
+    var btn = $("sync"); btn.disabled = true;
+    if (!S.cfg) { setStatus("err", "Open this page through server.py (http://localhost:8080) to sync."); btn.disabled = false; return; }
+    if (!S.cfg.googleReady || !S.cfg.hasAiKey) { renderSetup(); btn.disabled = false; return; }
+    if (!S.cfg.signedIn) { setStatus("busy", "Signing in to Google…", 0.02); try { sessionStorage.setItem("cnd2.autosync", "1"); } catch (e) {} location.href = "login"; return; }
+    var cache = restore("cache", {}), failures = 0;
+    Promise.resolve().then(function () {
+      setStatus("busy", "Searching Gmail…", 0.05);
+      var q = '("credit note" OR "credit memo" OR "credit-note" OR "CN against") after:' + ymd(periodStart()), all = [];
+      return (function page(tok) {
+        return gfetch("threads?maxResults=100&q=" + encodeURIComponent(q) + (tok ? "&pageToken=" + tok : "")).then(function (j) {
+          all = all.concat(j.threads || []); setStatus("busy", "Found " + all.length + " threads…", 0.08);
+          return j.nextPageToken && all.length < 500 ? page(j.nextPageToken) : all;
+        });
+      })("");
+    }).then(function (list) {
+      var todo = list.filter(function (t) { return !cache[t.id + ":" + t.historyId]; }), done = 0;
+      setStatus("busy", "Reading " + todo.length + " new or changed threads…", 0.1);
+      return pool(todo, 4, function (t) { return gfetch("threads/" + t.id + "?format=full").then(function (full) { done++; setStatus("busy", "Reading emails " + done + " of " + todo.length, 0.1 + 0.3 * done / todo.length); return { t: t, c: compact(full) }; }); })
+        .then(function (res) {
+          var ok = res.filter(function (x) { if (x && x.error) { failures++; return false; } return !!x; }), batches = [];
+          for (var i = 0; i < ok.length; i += 3) batches.push(ok.slice(i, i + 3));
+          var d2 = 0;
+          return pool(batches, 2, function (b) {
+            return classifyBatch(b.map(function (x) { return x.c; })).then(function (recs) {
+              recs.forEach(function (r, k) { cache[b[k].t.id + ":" + b[k].t.historyId] = r; });
+              d2++; setStatus("busy", "AI is classifying " + Math.min(d2 * 3, ok.length) + " of " + ok.length, 0.4 + 0.55 * d2 / batches.length);
+            });
+          }).then(function (r) { r.forEach(function (x) { if (x && x.error) { failures++; S.lastErr = x.error.msg; } }); return list; });
+        });
+    }).then(function (list) {
+      var recs = list.map(function (t) { return cache[t.id + ":" + t.historyId]; }).filter(Boolean);
+      var keep = {}; list.forEach(function (t) { keep[t.id + ":" + t.historyId] = cache[t.id + ":" + t.historyId]; });
+      store("cache", keep);
+      S.records = normalise(recs); S.source = "live"; S.meta = { generatedAt: fmtDate(iso(new Date())), threadsClassified: recs.length };
+      store("last", { records: S.records, meta: S.meta });
+      renderErp();
+      fillEntities(); render();
+      setStatus(failures ? "err" : "on", failures ? "Synced with " + failures + " thread(s) skipped" + (S.lastErr ? ": " + S.lastErr : "") : "Live: " + recs.length + " threads synced", null);
+    }).catch(function (e) { setStatus("err", (e && e.msg) || "Sync failed: " + e, null); }).then(function () { btn.disabled = false; });
+  }
+  function renderSetup() {
+    var miss = [], c = S.cfg || {};
+    $("signout").hidden = !c.signedIn;
+    $("sync").textContent = c.signedIn ? "Sync Gmail" : "Connect Gmail and sync";
+    if (c.signedIn) setStatus("on", "Signed in as " + (c.email || "Google user"), null);
+    if (!c.googleReady) miss.push("<code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> (Google sign-in)");
+    if (!c.hasAiKey) miss.push("<code>OPENAI_API_KEY</code> (AI classification)");
+    var el = $("setup");
+    if (!miss.length) { el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = '<div class="note">Live sync needs ' + miss.join(" and ") + ' in <code>config.json</code> or as environment variables, then restart <code>server.py</code>. Steps are in README.md. The snapshot below still works.</div>';
+  }
+
+  /* ---------- ERP pending bills, linked to the email records; vendor follow-up mail sent only on approval ---------- */
+  var E = { items: [], groups: {}, err: "", busy: false, loaded: false, at: 0, mine: restore("erpMine", true), q: "", all: false, draft: null };
+  var FREE_MAIL = /^(gmail|googlemail|yahoo|ymail|rediffmail|outlook|hotmail|live)\./;
+  function invKey(s) { return String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); }
+  function sameVendor(a, b) { if (!a || !b) return false; if (a === b) return true; var n = Math.min(a.length, b.length, 10); return n >= 6 && a.slice(0, n) === b.slice(0, n); }
+  function daysSince(d) { return d ? Math.max(0, Math.floor((Date.now() - new Date(d + "T00:00:00")) / 864e5)) : null; }
+  function titleName(u) { return String(u || "").split(/[._\s]+/).filter(Boolean).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(" "); }
+  function emailFor(bill) {
+    var vk = canon(bill.vendor), ik = invKey(bill.invoice), inv = null, ven = null;
+    S.records.forEach(function (r) {
+      if (!sameVendor(canon(r.vendor), vk)) return;
+      if (!ven || (ven.last_activity || "") < (r.last_activity || "")) ven = r;
+      if (ik.length < 3) return;
+      var hay = [r.subject, r.summary].concat(r.pending.map(function (p) { return p.invoice; }));
+      r.credit_notes.forEach(function (c) { hay = hay.concat(c.invoices || []); });
+      var hit = hay.some(function (x) { var k = invKey(x); return k && (k === ik || (ik.length >= 5 && k.indexOf(ik) >= 0) || (k.length >= 5 && ik.indexOf(k) >= 0)); });
+      if (hit && (!inv || (inv.last_activity || "") < (r.last_activity || ""))) inv = r;
+    });
+    return { invoice: inv, vendor: ven };
+  }
+  function emailCell(bill) {
+    var m = emailFor(bill), r = m.invoice;
+    if (r) {
+      var txt = { received: "Credit note received by email", adjusted: "Adjusted (per email)", partial: "Partly received by email", requested: "Requested by email, still awaited" }[r.category] || "Discussed by email";
+      return '<span class="em' + (r.category === "received" || r.category === "adjusted" ? " ok" : "") + '"><a href="' + esc(gmailLink(r.threadId)) + '" target="_blank" rel="noopener">' + txt + "</a> · " + fmtDate(r.last_activity) + "</span>";
+    }
+    if (m.vendor) return '<span class="em">No email for this invoice. <a href="' + esc(gmailLink(m.vendor.threadId)) + '" target="_blank" rel="noopener">Latest vendor email</a> ' + fmtDate(m.vendor.last_activity) + "</span>";
+    return '<span class="em">No email found yet</span>';
+  }
+  function loadErp(refresh) {
+    if (!S.cfg || !S.cfg.signedIn || !S.cfg.hasErp) { renderErp(); return; }
+    E.err = ""; E.busy = true; renderErp();
+    fetch("api/erp" + (refresh ? "?refresh=1" : ""), { headers: { "X-CND": "1" } })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw { msg: j.error || ("Server error " + r.status) }; return j; }); })
+      .then(function (j) { E.items = j.items || []; E.at = j.fetchedAt * 1000; E.loaded = true; })
+      .catch(function (e) { E.err = (e && e.msg) || "Could not load ERP bills."; })
+      .then(function () { E.busy = false; renderErp(); renderAlerts(); });
+  }
+  function renderErp() {
+    var el = $("erp");
+    if (!S.cfg || !S.cfg.signedIn || !S.cfg.hasErp) { el.hidden = true; return; }
+    var user = S.cfg.erpUser || "";
+    if (!el.firstChild) {
+      el.innerHTML = '<div class="erpbox"><h3><span id="erp-title">ERP pending bills</span><span><button class="btn ghost" id="erp-refresh" type="button">Refresh</button></span></h3>' +
+        '<div class="erp-tools"><button class="chip" id="erp-mine" type="button"></button>' +
+        '<input type="search" id="erp-q" placeholder="Search vendor, invoice, remark" aria-label="Search ERP bills"><span class="who" id="erp-at"></span></div>' +
+        '<div id="erp-list"></div></div>';
+    }
+    el.hidden = false;
+    var q = E.q.toLowerCase(), fu = restore("followups", {});
+    var list = E.items.filter(function (b) { return (!E.mine || b.toUser === user) && (!q || [b.vendor, b.invoice, b.ref, b.note, b.project].join(" ").toLowerCase().indexOf(q) >= 0); });
+    var groups = {}, order = [];
+    list.forEach(function (b) { var k = canon(b.vendor) || "vendor"; if (!groups[k]) { groups[k] = { key: k, name: b.vendor, bills: [] }; order.push(k); } groups[k].bills.push(b); });
+    order.sort(function (a, b) { return groups[b].bills.length - groups[a].bills.length || groups[a].name.localeCompare(groups[b].name); });
+    E.groups = groups;
+    $("erp-title").textContent = "ERP pending bills" + (E.loaded ? " (" + list.length + " bills, " + order.length + " vendors)" : "");
+    $("erp-refresh").disabled = E.busy; $("erp-refresh").textContent = E.busy ? "Loading…" : "Refresh";
+    $("erp-mine").textContent = "Only bills assigned to " + user; $("erp-mine").setAttribute("aria-pressed", String(!!E.mine));
+    $("erp-at").textContent = E.at ? "ERP read at " + new Date(E.at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "";
+    var h = "";
+    if (E.err) h += '<div class="note">' + esc(E.err) + "</div>";
+    else if (E.loaded && !list.length) h += '<div class="who" style="padding:8px 0">No pending bills match.</div>';
+    (E.all ? order : order.slice(0, 12)).forEach(function (k) {
+      var g = groups[k], oldest = Math.max.apply(null, g.bills.map(function (b) { return daysSince(b.created || b.received) || 0; }));
+      h += '<div class="ev"><div class="ev-h"><b>' + esc(g.name) + '</b><span class="acts"><span class="who">' + g.bills.length + " pending · oldest " + oldest + ' d</span>' +
+        '<button class="btn gold" type="button" data-draft="' + esc(k) + '">Draft follow-up mail</button></span></div>';
+      g.bills.forEach(function (b) {
+        var age = daysSince(b.created || b.received), note = b.note.length > 240 ? b.note.slice(0, 240) + "…" : b.note;
+        h += '<div class="eb"><div><b>' + esc(b.invoice || "-") + '</b><span class="meta">Bill ' + esc(b.ref) + " · " + esc(b.project) + (age != null ? " · " + age + " d" : "") + (E.mine ? "" : " · " + esc(b.toUser)) + "</span></div>" +
+          '<div>' + b.needs.map(function (n) { return '<span class="pill warn">' + esc(n) + "</span>"; }).join("") + '<span class="bn" title="' + esc(b.note) + '">' + esc(note || "No remark") + "</span></div>" +
+          "<div>" + emailCell(b) + (fu[b.id] ? '<span class="fu-done">Followed up ' + fmtDate(fu[b.id]) + "</span>" : "") + "</div></div>";
+      });
+      h += "</div>";
+    });
+    if (!E.all && order.length > 12) h += '<div style="padding-top:8px"><button class="btn ghost" id="erp-more" type="button">Show all ' + order.length + " vendors</button></div>";
+    $("erp-list").innerHTML = h;
+  }
+  function vendorEmails(name) {
+    var words = String(name).replace(/[^A-Za-z0-9 ]/g, " ").split(/\s+/).filter(function (w) { return w.length > 1 && !/^(PVT|PRIVATE|LTD|LIMITED|LLP|CO|COMPANY|AND|THE)$/i.test(w); }).slice(0, 2).join(" ");
+    if (!words) return Promise.resolve([]);
+    var me = (S.cfg.email || "").toLowerCase(), myDom = me.split("@")[1] || "", count = {};
+    return gfetch("threads?maxResults=8&q=" + encodeURIComponent('"' + words + '" newer_than:2y')).then(function (j) {
+      return pool((j.threads || []).slice(0, 5), 3, function (t) { return gfetch("threads/" + t.id + "?format=metadata&metadataHeaders=From&metadataHeaders=Reply-To"); });
+    }).then(function (res) {
+      res.forEach(function (t) {
+        if (!t || t.error) return;
+        (t.messages || []).forEach(function (m) {
+          (hdr(m, "from") + " " + hdr(m, "reply-to")).replace(/[^\s<>"',;]+@[^\s<>"',;]+/g, function (a) {
+            a = a.toLowerCase(); var dom = a.split("@")[1] || "";
+            if (a === me || (dom === myDom && !FREE_MAIL.test(dom)) || /no-?reply|mailer-daemon|notification/.test(a)) return a;
+            count[a] = (count[a] || 0) + 1; return a;
+          });
+        });
+      });
+      return Object.keys(count).sort(function (a, b) { return count[b] - count[a]; }).slice(0, 4);
+    });
+  }
+  function openDraft(k) {
+    var g = E.groups[k]; if (!g) return;
+    var sign = titleName(S.cfg.erpUser) || "Accounts team", n = g.bills.length;
+    var lines = g.bills.map(function (b, i) {
+      return (i + 1) + ". Invoice " + (b.invoice || "-") + (b.project ? " (" + b.project + ")" : "") + ": " + (b.needs.length ? b.needs.join(", ") : "Clarification needed") +
+        (b.note ? "\n   Note: " + b.note : "");
+    });
+    E.draft = { key: k, ids: g.bills.map(function (b) { return b.id; }), vendor: g.name };
+    $("mb-to").value = ""; $("mb-cc").value = "";
+    $("mb-subject").value = "Pending documents for " + (n === 1 ? "invoice " + (g.bills[0].invoice || "") : n + " invoices") + " - Alcove Realty";
+    $("mb-body").value = "Dear Sir/Madam,\n\nGreetings from Alcove Realty.\n\nThe following bill" + (n > 1 ? "s" : "") + " from " + g.name + (n > 1 ? " are" : " is") +
+      " on hold in our accounts, pending the documents or corrections noted against each:\n\n" + lines.join("\n\n") +
+      "\n\nKindly share the above at the earliest, quoting the invoice number, so that we can process your payment.\n\nThanks and regards,\n" + sign + "\nAccounts, Alcove Realty";
+    $("mb-msg").innerHTML = S.cfg.canSend ? "" : 'Sending needs your permission in Google. <a href="login">Sign in again</a> and allow "Send email on your behalf". You can copy the text meanwhile.';
+    $("mb-send").disabled = !S.cfg.canSend;
+    $("mb-tohint").textContent = "Looking for " + g.name + "'s address in your Gmail…";
+    $("mailbox").hidden = false; $("mb-to").focus();
+    vendorEmails(g.name).then(function (list) {
+      if (!E.draft || E.draft.key !== k) return;
+      if (!list.length) { $("mb-tohint").textContent = "No address found in your Gmail. Type the vendor's email."; return; }
+      if (!$("mb-to").value) $("mb-to").value = list[0];
+      $("mb-tohint").innerHTML = "Found in your Gmail: " + list.map(function (a) { return '<button class="linkbtn" type="button" data-addr="' + esc(a) + '">' + esc(a) + "</button>"; }).join(", ") + " (click to add)";
+    }).catch(function () { $("mb-tohint").textContent = "Could not search Gmail for an address. Type the vendor's email."; });
+  }
+  function closeDraft() { $("mailbox").hidden = true; E.draft = null; }
+  function sendDraft() {
+    var d = E.draft, to = $("mb-to").value.trim();
+    if (!d) return;
+    if (!to) { $("mb-msg").textContent = "Add the vendor's email address in To."; $("mb-to").focus(); return; }
+    $("mb-send").disabled = true; $("mb-msg").textContent = "Sending…";
+    fetch("api/send", { method: "POST", headers: { "Content-Type": "application/json", "X-CND": "1" },
+      body: JSON.stringify({ to: to, cc: $("mb-cc").value, subject: $("mb-subject").value, body: $("mb-body").value }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw { msg: j.error || ("Server error " + r.status) }; return j; }); })
+      .then(function () {
+        var fu = restore("followups", {}), today = iso(new Date());
+        d.ids.forEach(function (id) { fu[id] = today; }); store("followups", fu);
+        closeDraft(); toast("Follow-up sent to " + to); renderErp();
+      })
+      .catch(function (e) { $("mb-msg").textContent = (e && e.msg) || "Sending failed."; $("mb-send").disabled = false; });
+  }
+  function erpForAlert(a) {
+    if (!E.items.length) return null;
+    var user = S.cfg && S.cfg.erpUser, txt = invKey(a.subject + " " + a.snippet), who = canon(a.from + " " + a.subject);
+    var byInv = E.items.filter(function (b) { var k = invKey(b.invoice); return k.length >= 5 && txt.indexOf(k) >= 0; });
+    if (byInv.length) return { how: "invoice", bills: byInv };
+    var byVen = E.items.filter(function (b) { var v = canon(b.vendor).slice(0, 10); return v.length >= 6 && who.indexOf(v) >= 0 && b.toUser === user; });
+    return byVen.length ? { how: "vendor", bills: byVen } : null;
+  }
+  function erpNote(a) {
+    var m = erpForAlert(a); if (!m) return "";
+    if (m.how === "invoice") return "ERP bill " + m.bills[0].ref + " (" + m.bills[0].invoice + ") is pending" + (m.bills[0].needs.length ? ": needs " + m.bills[0].needs.join(", ") : "");
+    return m.bills.length + " ERP bill" + (m.bills.length > 1 ? "s" : "") + " pending for " + m.bills[0].vendor;
+  }
+  $("erp").addEventListener("click", function (e) {
+    var t = e.target, d = t.closest("[data-draft]");
+    if (d) return openDraft(d.getAttribute("data-draft"));
+    if (t.id === "erp-refresh") return loadErp(true);
+    if (t.id === "erp-more") { E.all = true; return renderErp(); }
+    if (t.id === "erp-mine") { E.mine = !E.mine; store("erpMine", E.mine); E.all = false; renderErp(); }
+  });
+  $("erp").addEventListener("input", function (e) { if (e.target.id === "erp-q") { E.q = e.target.value.trim(); renderErp(); } });
+  $("mailbox").addEventListener("click", function (e) {
+    var t = e.target, a = t.closest("[data-addr]");
+    if (t === $("mailbox") || t.id === "mb-cancel") return closeDraft();
+    if (t.id === "mb-send") return sendDraft();
+    if (t.id === "mb-copy") return copyText("To: " + $("mb-to").value + "\nSubject: " + $("mb-subject").value + "\n\n" + $("mb-body").value);
+    if (a) { var cur = $("mb-to").value.trim(), addr = a.getAttribute("data-addr"); if (cur.toLowerCase().indexOf(addr) < 0) $("mb-to").value = cur ? cur + ", " + addr : addr; }
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("mailbox").hidden) closeDraft(); });
+
+  /* ---------- mail watch: popup when credit note, MTC, warranty or invoice mail arrives ---------- */
+  var WATCH = [
+    { label: "Credit note", q: '"credit note" OR "credit memo" OR "credit-note" OR "CN against"' },
+    { label: "MTC", q: 'MTC OR "material test certificate" OR "mill test certificate" OR "test certificate"' },
+    { label: "Warranty", q: 'warranty OR "warranty certificate" OR guarantee' },
+    { label: "Invoice", q: 'invoice OR "tax invoice" OR "proforma invoice"' }
+  ];
+  var W = { timer: null, remind: null, busy: false, last: 0 }, BASE_TITLE = document.title;
+  function watchState() { var w = restore("watch", null); return w && w.seen ? w : { since: Math.floor(Date.now() / 1000), seen: {}, alerts: [] }; }
+  function hdr(m, name) { var h = ((m.payload && m.payload.headers) || []).filter(function (x) { return x.name.toLowerCase() === name; })[0]; return h ? h.value : ""; }
+  function unent(s) { var t = document.createElement("textarea"); t.innerHTML = s; return t.value; }
+  function notify(title, body, threadId) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    try {
+      var n = new Notification(title, { body: body, tag: threadId || title });
+      n.onclick = function () { window.focus(); if (threadId) window.open(gmailLink(threadId), "_blank", "noopener"); n.close(); };
+    } catch (e) {}
+  }
+  function checkMail() {
+    if (W.busy || !S.cfg || !S.cfg.signedIn) return;
+    W.busy = true;
+    var w = watchState(), started = Math.floor(Date.now() / 1000), found = {}, me = (S.cfg.email || "").toLowerCase();
+    pool(WATCH, 2, function (c) {
+      var q = "(" + c.q + ") after:" + (w.since - 120) + " -in:sent -in:drafts" + (me ? " -from:" + me : "");
+      return gfetch("threads?maxResults=25&q=" + encodeURIComponent(q)).then(function (j) {
+        (j.threads || []).forEach(function (t) {
+          var k = t.id + ":" + t.historyId;
+          if (!w.seen[k]) (found[k] = found[k] || { id: t.id, cats: [] }).cats.push(c.label);
+        });
+      });
+    }).then(function (res) {
+      var failed = res.some(function (x) { return x && x.error; }), keys = Object.keys(found), fresh = [];
+      return pool(keys, 3, function (k) {
+        return gfetch("threads/" + found[k].id + "?format=metadata").then(function (t) {
+          var msgs = t.messages || [], m = msgs[msgs.length - 1] || {};
+          var a = { id: found[k].id, cats: found[k].cats, subject: hdr(m, "subject") || "(no subject)",
+            from: hdr(m, "from").replace(/<[^>]*>/, "").replace(/"/g, "").trim(), date: Number(m.internalDate) || Date.now(),
+            snippet: unent(m.snippet || "").slice(0, 160) };
+          w.seen[k] = started;
+          w.alerts = w.alerts.filter(function (x) { return x.id !== a.id; }); w.alerts.unshift(a); fresh.push(a);
+        });
+      }).then(function (r2) {
+        if (!failed && !r2.some(function (x) { return x && x.error; })) w.since = started;
+        var ks = Object.keys(w.seen);
+        if (ks.length > 600) ks.sort(function (a, b) { return w.seen[a] - w.seen[b]; }).slice(0, ks.length - 500).forEach(function (k) { delete w.seen[k]; });
+        w.alerts = w.alerts.slice(0, 50); store("watch", w); W.last = Date.now();
+        if (fresh.length > 3) notify(fresh.length + " new mails to check", fresh.map(function (a) { return a.cats[0] + ": " + a.subject; }).slice(0, 4).join("\n"));
+        else fresh.forEach(function (a) { var en = erpNote(a); notify(a.cats.join(" + ") + ": " + a.subject, a.from + (en ? "\n" + en : "") + (a.snippet ? "\n" + a.snippet : ""), a.id); });
+        if (fresh.length) toast(fresh.length + " new " + (fresh.length > 1 ? "mails" : "mail") + " on credit notes, MTCs, warranties or invoices");
+        renderAlerts();
+      });
+    }).catch(function () {}).then(function () { W.busy = false; });
+  }
+  function remind() {
+    var list = watchState().alerts;
+    if (!list.length) return;
+    notify("Reminder: " + list.length + " mail" + (list.length > 1 ? "s" : "") + " still to check", list.slice(0, 4).map(function (a) { return a.cats[0] + ": " + a.subject; }).join("\n"));
+    toast("Reminder: " + list.length + " mail" + (list.length > 1 ? "s" : "") + " still to check");
+  }
+  function startWatch() { if (W.timer) return; checkMail(); W.timer = setInterval(checkMail, 120000); W.remind = setInterval(remind, 1800000); renderAlerts(); }
+  function stopWatch() { clearInterval(W.timer); clearInterval(W.remind); W.timer = W.remind = null; renderAlerts(); }
+  function renderAlerts() {
+    var list = watchState().alerts, el = $("alerts"), on = !!(S.cfg && S.cfg.signedIn);
+    document.title = (list.length ? "(" + list.length + ") " : "") + BASE_TITLE;
+    if (!on && !list.length) { el.hidden = true; return; }
+    var perm = "Notification" in window ? Notification.permission : "unsupported";
+    var h = '<div class="alertbox"><h3><span>New mail alerts' + (list.length ? " (" + list.length + ")" : "") + '</span><span class="acts">' +
+      (on && perm === "default" ? '<button class="btn gold" id="al-enable" type="button">Turn on desktop popups</button>' : "") +
+      (on && perm === "denied" ? '<span class="who">Desktop popups are blocked for this site in your browser settings.</span>' : "") +
+      (list.length ? '<button class="btn ghost" id="al-clear" type="button">Clear all</button>' : "") + "</span></h3>" +
+      '<div class="who">' + (on ? "Watching Gmail every 2 minutes for credit notes, MTCs, warranties and invoices" +
+        (W.last ? ". Last checked " + new Date(W.last).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "") +
+        ". Keep this tab open." : "Sign in to Google to keep watching for new mail.") + "</div>";
+    list.forEach(function (a) {
+      h += '<div class="al"><span>' + a.cats.map(function (c) { return '<span class="pill warn">' + esc(c) + "</span>"; }).join("") + "</span>" +
+        '<span><a href="' + esc(gmailLink(a.id)) + '" target="_blank" rel="noopener">' + esc(a.subject) + "</a> " +
+        '<span class="who">' + esc(a.from) + " · " + esc(new Date(a.date).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })) + "</span>" +
+        (a.snippet ? '<span class="snip">' + esc(a.snippet) + "</span>" : "") +
+        (erpNote(a) ? '<span class="snip"><span class="pill neutral">ERP</span>' + esc(erpNote(a)) + "</span>" : "") + "</span>" +
+        '<button class="btn ghost" type="button" data-done="' + esc(a.id) + '">Done</button></div>';
+    });
+    el.innerHTML = h + "</div>"; el.hidden = false;
+  }
+  $("alerts").addEventListener("click", function (e) {
+    var t = e.target, d = t.closest("[data-done]"), w = watchState();
+    if (t.id === "al-enable") { Notification.requestPermission().then(function (p) { if (p === "granted") notify("Popups are on", "You'll get a popup when new credit note, MTC, warranty or invoice mail arrives."); renderAlerts(); }); return; }
+    if (t.id === "al-clear") w.alerts = [];
+    else if (d) { var id = d.getAttribute("data-done"); w.alerts = w.alerts.filter(function (x) { return x.id !== id; }); }
+    else return;
+    store("watch", w); renderAlerts();
+  });
+
+  /* ---------- events ---------- */
+  document.addEventListener("click", function (e) {
+    var t = e.target, v = t.closest("[data-v]"), cat = t.closest("[data-cat]");
+    if (v) { S.sel = v.getAttribute("data-v"); render(); window.scrollTo(0, 0); return; }
+    if (cat) { var k = cat.getAttribute("data-cat"); S.cats[k] = !S.cats[k]; cat.setAttribute("aria-pressed", String(!!S.cats[k])); render(); return; }
+    if (t.id === "openonly") { S.openOnly = !S.openOnly; t.setAttribute("aria-pressed", String(S.openOnly)); render(); return; }
+    if (t.id === "copy") copyText(summaryText());
+    if (t.id === "csv") exportCsv();
+    if (t.id === "morefu") { S.showAllFu = !S.showAllFu; render(); }
+  });
+  $("q").addEventListener("input", function (e) { S.q = e.target.value.trim(); render(); });
+  $("entity").addEventListener("change", function (e) { S.entity = e.target.value; render(); });
+  $("period").addEventListener("change", function (e) { S.period = e.target.value; store("period", S.period); render(); });
+  $("sync").addEventListener("click", sync);
+  $("signout").addEventListener("click", function () {
+    fetch("logout", { method: "POST", headers: { "X-CND": "1" } }).then(function () { S.cfg.signedIn = false; S.cfg.email = ""; stopWatch(); renderErp(); renderSetup(); setStatus("", "Signed out of Google.", null); });
+  });
+
+  /* ---------- start ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-cat]"), function (b) { b.setAttribute("aria-pressed", "false"); });
+  S.period = restore("period", "fy"); $("period").value = S.period;
+  var last = restore("last", null), snap = null;
+  try { snap = JSON.parse($("snapshot").textContent); } catch (e) {}
+  if (last && last.records && last.records.length) { S.records = normalise(last.records); S.meta = last.meta; S.source = "live"; setStatus("on", "Showing your last live sync", null); }
+  else if (snap) { S.records = normalise(snap.records); S.meta = { generatedAt: fmtDate(snap.meta.generatedAt), threadsClassified: snap.meta.threadsClassified }; setStatus("", "Showing snapshot. Press the button to sync live.", null); }
+  fillEntities(); render();
+  var authErr = new URLSearchParams(location.search).get("auth_error");
+  if (location.search) history.replaceState(null, "", location.pathname);
+  fetch("api/config").then(function (r) { return r.ok ? r.json() : null; }).then(function (c) {
+    S.cfg = c; if (!c) return setStatus("", "Snapshot only. Run server.py for live sync.", null);
+    renderSetup();
+    if (authErr) setStatus("err", "Google sign-in did not complete (" + authErr + ").", null);
+    var auto = false; try { auto = sessionStorage.getItem("cnd2.autosync") === "1"; sessionStorage.removeItem("cnd2.autosync"); } catch (e) {}
+    if (c.signedIn && auto) sync();
+    if (c.signedIn) { startWatch(); loadErp(); } else renderAlerts();
+  }).catch(function () { setStatus("", "Snapshot only. Run server.py for live sync.", null); });
+})();
+</script>
+</body>
+</html>

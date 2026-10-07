@@ -1,0 +1,6 @@
+config.json
+tokens.db
+.secret_key
+__pycache__/
+*.pyc
+.env
