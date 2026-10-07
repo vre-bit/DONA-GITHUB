@@ -5,6 +5,8 @@
   "OPENAI_MODEL": "gpt-4.1",
   "ERP_API_URL": "http://<erp-host>:8080/api/values?key=<key>&itemid=11",
   "ERP_USER": "dona.basu",
+  "SHEET_ID": "<id from the Google Sheet link>",
+  "SHEET_GID": "0",
   "SECRET_KEY": "any-long-random-string",
   "PORT": 8080
 }

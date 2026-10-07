@@ -11,6 +11,8 @@ Run:     python server.py
 Open:    http://localhost:8080
 """
 import base64
+import csv
+import io
 import json
 import os
 import re
@@ -58,6 +60,8 @@ def load_config():
         "OPENAI_MODEL": get("OPENAI_MODEL", "gpt-4.1"),
         "ERP_API_URL": get("ERP_API_URL"),
         "ERP_USER": get("ERP_USER", "dona.basu"),
+        "SHEET_ID": get("SHEET_ID"),
+        "SHEET_GID": get("SHEET_GID", "0"),
         "SECRET_KEY": get("SECRET_KEY"),
         "PORT": int(get("PORT", "8080")),
     }
@@ -292,6 +296,7 @@ def api_config():
         canSend=bool(tok and "gmail.send" in tok.get("scope", "")),
         erpUser=CFG["ERP_USER"],
         hasErp=bool(CFG["ERP_API_URL"]),
+        hasSheet=bool(CFG["SHEET_ID"]),
     )
 
 
@@ -372,6 +377,48 @@ def api_erp():
     except (requests.RequestException, ValueError) as e:
         return jsonify(error="Could not read the ERP: %s" % e), 502
     return jsonify(items=items, user=CFG["ERP_USER"], fetchedAt=int(ERP_CACHE["at"]))
+
+
+# ---------- vendor payment issues (Google Sheet shared as "anyone with the link") ----------
+
+SHEET_CACHE = {"at": 0, "rows": None}
+SHEET_COLS = ["ticket", "vendor", "pan", "phone", "email", "raised", "type", "message", "status", "remark"]
+
+
+def sheet_rows():
+    if SHEET_CACHE["rows"] is None or time.time() - SHEET_CACHE["at"] > 120:
+        url = "https://docs.google.com/spreadsheets/d/%s/export?format=csv&gid=%s" % (CFG["SHEET_ID"], CFG["SHEET_GID"])
+        r = requests.get(url, timeout=60)
+        if r.status_code in (401, 403) or "text/csv" not in r.headers.get("Content-Type", ""):
+            raise ValueError("the sheet is not shared as 'Anyone with the link can view'")
+        r.raise_for_status()
+        rows = []
+        for i, cells in enumerate(csv.reader(io.StringIO(r.content.decode("utf-8-sig")))):
+            cells = [c.strip() for c in cells] + [""] * len(SHEET_COLS)
+            row = dict(zip(SHEET_COLS, cells))
+            if not row["vendor"] or (i == 0 and re.search(r"vendor|party|name", row["vendor"], re.I)):
+                continue  # blank line or a header row
+            row["row"] = i + 1
+            rows.append(row)
+        SHEET_CACHE.update(at=time.time(), rows=rows)
+    return SHEET_CACHE["rows"]
+
+
+@app.get("/api/payment-issues")
+def api_payment_issues():
+    require_page_request()
+    if not current_token():
+        return jsonify(error="Sign in with Google first."), 401
+    if not CFG["SHEET_ID"]:
+        return jsonify(error="SHEET_ID is not set on the server."), 503
+    if request.args.get("refresh"):
+        SHEET_CACHE["rows"] = None
+    try:
+        rows = sheet_rows()
+    except (requests.RequestException, ValueError) as e:
+        return jsonify(error="Could not read the payment issues sheet: %s" % e), 502
+    return jsonify(rows=rows, fetchedAt=int(SHEET_CACHE["at"]),
+                   sheetUrl="https://docs.google.com/spreadsheets/d/%s/edit#gid=%s" % (CFG["SHEET_ID"], CFG["SHEET_GID"]))
 
 
 # ---------- send vendor follow-up mail (only when the user approves it on the page) ----------
